@@ -11,6 +11,8 @@ package credwire
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -244,8 +246,10 @@ func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {
 }
 
 // TestMCPToolResultCarryingTheKeyIsWithheld: an API answer repeating the key
-// reaches the MCP client as the kit's notice, through the server's own tool and
-// through a mirrored CLI child, and the same read without it prints.
+// reaches the MCP client with the key redacted (or, should the kit fall back,
+// as its notice), through the server's own tool and through a mirrored CLI
+// child, and the same read without it prints. Contract section 4: a JSON tool
+// result has the leaf carrying a held value replaced by "[redacted]".
 func TestMCPToolResultCarryingTheKeyIsWithheld(t *testing.T) {
 	var echo struct {
 		sync.Mutex
@@ -267,8 +271,8 @@ func TestMCPToolResultCarryingTheKeyIsWithheld(t *testing.T) {
 		if id == 0 {
 			continue
 		}
-		if strings.Contains(r, nestedKey) || !strings.Contains(r, "credkit: withheld from") {
-			t.Errorf("call %d did not withhold an answer carrying the key:\n%.1000s", id, r)
+		if form := heldFormIn(r, nestedKey); form != "" || (!strings.Contains(r, `[redacted]`) && !strings.Contains(r, "credkit: withheld from")) {
+			t.Errorf("call %d did not redact or withhold an answer carrying the key (form %q):\n%.1000s", id, form, r)
 		}
 	}
 	echo.key = "operational"
@@ -312,4 +316,27 @@ func TestCredentialFilesOnlyReads(t *testing.T) {
 	for _, e := range entries {
 		t.Errorf("credentialFiles created %s under the home", e.Name())
 	}
+}
+
+// heldFormIn names an in-contract form of v (credential-leak contract sections
+// 1-3: the whole value, any 8-character piece, hex, base64) found in out, or "".
+func heldFormIn(out, v string) string {
+	forms := map[string]string{
+		"whole":     v,
+		"hex":       hex.EncodeToString([]byte(v)),
+		"base64":    base64.StdEncoding.EncodeToString([]byte(v)),
+		"base64raw": base64.RawStdEncoding.EncodeToString([]byte(v)),
+		"base64url": base64.RawURLEncoding.EncodeToString([]byte(v)),
+	}
+	for name, f := range forms {
+		if strings.Contains(out, f) {
+			return name
+		}
+	}
+	for i := 0; i+8 <= len(v); i++ {
+		if strings.Contains(out, v[i:i+8]) {
+			return "piece " + v[i:i+8]
+		}
+	}
+	return ""
 }

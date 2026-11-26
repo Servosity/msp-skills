@@ -101,7 +101,7 @@ func TestMCPChildNeverReceivesAHeldValue(t *testing.T) {
 	if !strings.Contains(out, fmt.Sprintf(`"id":%d`, len(fetches)+len(calls))) {
 		t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
 	}
-	assertNoEcho(t, "MCP session", out)
+	assertNoMCPEcho(t, "MCP session", out)
 	var sawControl bool
 	_ = filepath.WalkDir(e.home, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || strings.HasPrefix(d.Name(), "credentials") {

@@ -166,7 +166,8 @@ func TestEveryCredentialSourceSendsOneKey(t *testing.T) {
 						"--cascade", "false", "--dry-run"))
 				}
 			}
-			out.WriteString(e.mcpCalls(t, mcp))
+			mcpOut := e.mcpCalls(t, mcp) // MCP output: assertNoEchoMixed
+			out.WriteString(mcpOut)
 			if rich || mode == credStored {
 				// auth logout clears what the source stored; neither it nor the
 				// status after it prints a credential.
@@ -179,7 +180,7 @@ func TestEveryCredentialSourceSendsOneKey(t *testing.T) {
 			if !strings.Contains(got, "HQ-Record") && !kitWithheld(got) {
 				t.Fatalf("the battery fetched nothing:\n%.2000s", got)
 			}
-			assertNoEcho(t, "output", got)
+			assertNoEchoMixed(t, "output", strings.Replace(got, mcpOut, "", 1), mcpOut)
 			if n, all := sv.sawKey(mode.sent()); n < wantKeys || len(all) != 1 {
 				t.Errorf("want every request to carry Authorization: Bearer %s (the %s token), got %d of it and distinct values %q", mode.sent(), mode, n, all)
 			}

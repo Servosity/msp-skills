@@ -241,6 +241,45 @@ func nb2AssertWithheld(t *testing.T, where, out string, forms map[string]string)
 	}
 }
 
+// nb2AssertRedacted is the MCP tool-result form of nb2AssertWithheld: a
+// result that is one JSON document has each leaf that carried a held value
+// replaced by "[redacted]" and is released only when the rewritten whole is
+// clean (docs/credential-leak-contract.md section 4, the MCP exception).
+func nb2AssertRedacted(t *testing.T, where, out string, forms map[string]string, held ...string) {
+	t.Helper()
+	nb2AssertNoForms(t, where, out, forms)
+	nb2AssertNoPiece(t, where, out, held...)
+	if !strings.Contains(out, "[redacted]") {
+		t.Errorf("%s: want the leaf that carried the value replaced by [redacted]:\n%s", where, out)
+	}
+	if strings.Contains(out, "credkit: withheld") {
+		t.Errorf("%s: want the JSON result redacted, not withheld whole:\n%s", where, out)
+	}
+}
+
+// nb2AssertNoPiece fails when out carries any 8-character piece of a held
+// value, raw, ROT13 or JSON-escaped (contract section 2(b): a piece of 8 or
+// more characters is a leak; ROT13 is a section-3 decoder). A redacted result
+// can keep a piece beside the marker ("zq7Wsink[redacted]"), which a
+// whole-value scan misses; every window is checked, so one surviving half of
+// a value of 16 or more characters is caught on its own. A value shorter than
+// 8 has no such piece: the whole-value scans cover it.
+func nb2AssertNoPiece(t *testing.T, where, out string, held ...string) {
+	t.Helper()
+	for _, v := range held {
+		for _, form := range []string{v, nb2ROT13(v)} {
+			for i := 0; i+8 <= len(form); i++ {
+				w := form[i : i+8]
+				j, _ := json.Marshal(w)
+				if strings.Contains(out, w) || strings.Contains(out, string(j[1:len(j)-1])) {
+					t.Errorf("%s carries the 8-character piece %q of a held value:\n%s", where, w, out)
+					break
+				}
+			}
+		}
+	}
+}
+
 func TestNB2EveryHeldSourceIsWithheldEndToEnd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds both binaries")
@@ -299,7 +338,7 @@ func TestNB2EveryHeldSourceIsWithheldEndToEnd(t *testing.T) {
 				}
 				nb2AssertWithheld(t, "CLI", out+stderr, forms)
 			}
-			nb2AssertWithheld(t, "MCP", nb2MCPRead(t, mcpBin, env, mcpArgs...), forms)
+			nb2AssertRedacted(t, "MCP", nb2MCPRead(t, mcpBin, env, mcpArgs...), forms, src.value, base)
 			if src.cli {
 				out, stderr, _ := nb2Run(t, cliBin, env, "", "hubspot-contacts-crm", "get-v3-objects-contacts-contact-id", "2", "--json")
 				nb2AssertNoForms(t, "CLI error", out+stderr, forms)
@@ -349,12 +388,10 @@ func TestNB2PreFixCacheAndStoreAreWithheldOnTheWayOut(t *testing.T) {
 	}
 	nb2AssertWithheld(t, "local read", out+stderr, forms)
 	got := nb2MCPCall(t, mcpBin, held, `{"name":"sql","arguments":{"query":"SELECT id, data FROM hubspot_contacts_crm"}}`)
-	for name, f := range forms {
-		if strings.Contains(got, f) {
-			t.Errorf("MCP sql printed the stored value (%s %q):\n%s", name, f, got)
-		}
-	}
-	if !strings.Contains(got, "credkit: withheld") {
-		t.Errorf("MCP sql: want the stored record withheld, not missing:\n%s", got)
+	// The sql result is one JSON document: the data leaf that carried the
+	// value is redacted, not the whole result (contract section 4).
+	nb2AssertRedacted(t, "MCP sql", got, forms, "Kx9vQ2mZ", held0)
+	if !strings.Contains(got, `\"rows\"`) {
+		t.Errorf("MCP sql: want the stored record redacted, not missing:\n%s", got)
 	}
 }

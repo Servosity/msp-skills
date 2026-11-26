@@ -515,6 +515,24 @@ func assertNoEcho(t *testing.T, where, text string) {
 	}
 }
 
+// assertNoPiece fails when text holds any 8-character window of a secret (a
+// piece of a credential, which the leak contract withholds: section 2(b)),
+// and so when it holds one half of 8 or more characters of one on its own.
+func assertNoPiece(t *testing.T, where, text string, secrets ...string) {
+	t.Helper()
+	for _, s := range secrets {
+		if a, b := halves(s); len(a) >= 8 && strings.Contains(text, a) || len(b) >= 8 && strings.Contains(text, b) {
+			t.Errorf("%s holds one half of %q", where, s)
+		}
+		for i := 0; i+8 <= len(s); i++ {
+			if strings.Contains(text, s[i:i+8]) {
+				t.Errorf("%s holds the piece %q of %q", where, s[i:i+8], s)
+				break
+			}
+		}
+	}
+}
+
 // countsFiles writes two usage-push inputs: the first has a row the fake
 // rejects (its 401 echo lands in the push ledger's error field), the second
 // changes a count, so usage drift has two runs to compare.
@@ -760,8 +778,17 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 				t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
 			}
 			assertNoEcho(t, "MCP session", out)
-			if !strings.Contains(out, kitNotice("mcp")) {
-				t.Fatalf("the MCP session withheld nothing; the echoes did not reach it:\n%.2000s", out)
+			// A redacted result must not keep part of a credential beside the
+			// marker: no piece of 8 or more characters (contract section 2(b))
+			// and no lone half of any credential.
+			assertNoPiece(t, "MCP session", out, secrets()...)
+			// An MCP tool result that is one JSON document is redacted leaf by
+			// leaf rather than withheld whole (credential leak contract section
+			// 4, amended 2026-11-25), so either the notice or the "[redacted]"
+			// marker proves an echo reached the kit; assertNoEcho above still
+			// proves no form of the token was released.
+			if !strings.Contains(out, kitNotice("mcp")) && !strings.Contains(out, `[redacted]`) {
+				t.Fatalf("the MCP session withheld and redacted nothing; the echoes did not reach it:\n%.2000s", out)
 			}
 			// The same reads print their data, as valid JSON, from the quiet fake.
 			quiet := quietServer(t)

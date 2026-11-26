@@ -104,6 +104,28 @@ func rvAssertNone(t *testing.T, where string, data []byte) {
 	}
 }
 
+// rvAssertNoPiece fails when data holds an 8-character window of a held
+// credential (the token secret or id), matched without regard to case, as
+// written, in ROT13 or in full-width letters (the forms rvForms sends that the
+// contract's decoders read: section 3 ROT13 and NFKC; a window of each is a
+// piece under section 2(b)). Every half of 8 or more characters is such a
+// window, so one surviving half fails too.
+func rvAssertNoPiece(t *testing.T, where string, data []byte) {
+	t.Helper()
+	low := strings.ToLower(string(data))
+	for _, v := range []string{rvTokenSecret, rvTokenID} {
+		for _, form := range []string{v, rvRot13(v), rvFullwidth(v)} {
+			r := []rune(strings.ToLower(form))
+			for i := 0; i+8 <= len(r); i++ {
+				if w := string(r[i : i+8]); strings.Contains(low, w) {
+					t.Errorf("%s holds the piece %q of a credential", where, w)
+					break
+				}
+			}
+		}
+	}
+}
+
 // rvServer answers every list with three organizations: one whose ID is the
 // credential, one whose name is each client-masker encoding of it, and an
 // ordinary one that must survive.
@@ -214,10 +236,18 @@ func TestR1ReviewClientMaskerEncodingsNeverPrinted(t *testing.T) {
 		{"name": "kaseya-vsa_read", "arguments": map[string]any{"endpoint_id": "organizations.list"}},
 		{"name": "organizations_list", "arguments": map[string]any{"data-source": "live"}},
 	})
-	if !strings.Contains(mcp, "credkit: withheld") {
-		t.Fatalf("want the withheld notice in the MCP results:\n%.2000s", mcp)
-	}
 	rvAssertNone(t, "MCP session", []byte(mcp))
+	// A redacted result must not keep part of the credential beside the
+	// marker: no 8-character piece (contract section 2(b)), so no lone half.
+	rvAssertNoPiece(t, "MCP session", []byte(mcp))
+	// An MCP tool result that is one JSON document has the leaves that carry
+	// the credential replaced by "[redacted]" rather than being withheld whole
+	// (credential leak contract section 4, amended 2026-11-25), so either
+	// proves the encoded names reached the kit; rvAssertNone above proves no
+	// form of the credential was released.
+	if !strings.Contains(mcp, "credkit: withheld") && !strings.Contains(mcp, "[redacted]") {
+		t.Fatalf("want the withheld notice or the redaction marker in the MCP results:\n%.2000s", mcp)
+	}
 }
 
 // P1-C: the learn journal, feedback.jsonl and the feedback endpoint never

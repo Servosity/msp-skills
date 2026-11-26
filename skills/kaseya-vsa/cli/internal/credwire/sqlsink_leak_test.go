@@ -15,9 +15,10 @@ import (
 )
 
 // With an existing store and auth_header = "lowercasecredential123", MCP
-// sql {"query":"SELECT 'lowercasecredential123' AS sample"} must be refused
-// whole. Since synccpu (owner GO 2026-11-09) the store does not read statement
-// text, so the statement runs and the MCP server withholds the answer.
+// sql {"query":"SELECT 'lowercasecredential123' AS sample"} must never return
+// the credential. Since synccpu (owner GO 2026-11-09) the store does not read
+// statement text, so the statement runs and the MCP server redacts the leaf
+// that carries it, or withholds the answer whole.
 //
 // The reviewer's credential shares the piece "credential" with every kit
 // notice, so the kit drops the notice from the reply too and the reply
@@ -45,13 +46,26 @@ func TestKitMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 		frames, stderr := mcpCall(t, mcp, s.env(), "sql", map[string]any{"query": "SELECT '" + secret + "' AS sample"})
 		requireAbsent(t, "MCP sql frames", frames, secret)
 		requireAbsent(t, "MCP stderr", stderr, secret)
-		if !strings.Contains(frames, `"isError":true`) {
-			t.Errorf("%s: the sql tool did not fail; frames:\n%s", secret, frames)
+		// Every 8-character window of the secret (a piece, contract section
+		// 2(b), so also a lone half of 8 or more characters), on stdout and
+		// stderr: a redacted result must not keep part of it beside the marker.
+		for i := 0; i+8 <= len(secret); i++ {
+			requireAbsent(t, "MCP sql frames", frames, secret[i:i+8])
+			requireAbsent(t, "MCP stderr", stderr, secret[i:i+8])
 		}
-		if !strings.Contains(strings.ToLower(secret), "credential") && !strings.Contains(frames, credkit.Notice(credkit.SinkMCP)) {
-			// synccpu: the store no longer reads statement text, so the statement
-			// runs and the MCP server withholds its answer whole
-			t.Errorf("%s: the answer was not withheld at the MCP sink; frames:\n%s", secret, frames)
+		// synccpu: the store no longer reads statement text, so the statement
+		// runs and the MCP server checks its answer. The answer is one JSON
+		// document carrying the secret in a leaf, so the kit redacts that leaf
+		// to "[redacted]" (credential leak contract section 4, amended
+		// 2026-11-25); a whole-result withhold (an isError result with the
+		// notice, or with none when the notice itself would match) is accepted
+		// too. No piece of the secret may reach the client either way.
+		redacted := strings.Contains(frames, `[redacted]`)
+		if !redacted && !strings.Contains(frames, `"isError":true`) {
+			t.Errorf("%s: the sql tool neither failed nor redacted the answer; frames:\n%s", secret, frames)
+		}
+		if !redacted && !strings.Contains(strings.ToLower(secret), "credential") && !strings.Contains(frames, credkit.Notice(credkit.SinkMCP)) {
+			t.Errorf("%s: the answer was neither redacted nor withheld at the MCP sink; frames:\n%s", secret, frames)
 		}
 
 		// An ordinary statement still runs.

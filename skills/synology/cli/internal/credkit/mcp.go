@@ -50,7 +50,23 @@ func MCPTools(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 			}
 			return res, err
 		}
-		if b, merr := json.Marshal(res); merr != nil || withheld(b) {
+		b, merr := json.Marshal(res)
+		v := exhausted
+		if merr == nil {
+			v = verdictOf(b)
+		}
+		if v != clean {
+			// Redaction first (redact.go), only for a match the check found
+			// in a result of at most maxRedactBytes: an exhausted check or an
+			// unknown held set is withheld whole. The redacted result is
+			// checked whole again and passes only when clean.
+			if v == leak && len(b) <= maxRedactBytes {
+				if r, ok := redactToolResult(res); ok {
+					if rb, err := json.Marshal(r); err == nil && !withheld(rb) {
+						return r, nil
+					}
+				}
+			}
 			n := Notice(SinkMCP)
 			if withheld([]byte(n)) {
 				n = ""

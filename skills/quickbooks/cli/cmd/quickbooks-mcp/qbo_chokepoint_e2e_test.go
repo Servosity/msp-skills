@@ -194,6 +194,40 @@ func qboLeaks(text, secret string) bool {
 	return false
 }
 
+// qboFixtureSecrets are the credentials the sources give the program besides
+// their own (the refreshed-token case's client secret and refresh tokens).
+var qboFixtureSecrets = []string{"cs-BBB222-e2e", "rfrsh-AAA111-rotated", "rfrsh-AAA111"}
+
+// qboHeldForms is secret, each form qboLeaks looks for, and the fixtures'
+// other credentials.
+func qboHeldForms(secret string) []string {
+	b32 := base32.StdEncoding.EncodeToString([]byte(secret))
+	return append([]string{secret, b32, strings.TrimRight(b32, "="), qboPlanted(secret)}, qboFixtureSecrets...)
+}
+
+// qboAssertNoPiece fails when text carries any 8-character window of a
+// value (contract section 2(b): a piece of 8 or more characters counts
+// anywhere, so one surviving half is a leak on its own), or a value shorter
+// than 8 whole. It is the check for every MCP result that may be redacted:
+// "zq7Wsink[redacted]" carries no whole value and still leaks "zq7Wsink".
+func qboAssertNoPiece(t *testing.T, where, text string, values ...string) {
+	t.Helper()
+	for _, v := range values {
+		if len(v) < 8 {
+			if strings.Contains(text, v) {
+				t.Errorf("%s carries the credential %q: %s", where, v, text)
+			}
+			continue
+		}
+		for i := 0; i+8 <= len(v); i++ {
+			if w := v[i : i+8]; strings.Contains(text, w) {
+				t.Errorf("%s carries %q, an 8-character piece of a credential: %s", where, w, text)
+				break
+			}
+		}
+	}
+}
+
 func qboWriteFile(t *testing.T, path, data string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
@@ -267,8 +301,8 @@ func qboSources() []qboSource {
 // the credential store from stdin, a refreshed token), each short enough
 // that a length exemption would skip it, then drives the CLI and the MCP
 // server for real: a stored row repeating it in lowercase unpadded base32, the dry-run request
-// dump repeating it as typed, a delivered file, an MCP sql result, and every
-// file the runs wrote. None may carry it in any encoding the check knows; a
+// dump repeating it as typed, a delivered file, an MCP sql result (redacted,
+// section 4), and every file the runs wrote. None may carry it in any encoding the check knows; a
 // clean row still prints.
 func TestQBOEveryCredentialSourceReachesNoOutput(t *testing.T) {
 	for _, src := range qboSources() {
@@ -300,11 +334,25 @@ func TestQBOEveryCredentialSourceReachesNoOutput(t *testing.T) {
 					t.Errorf("%s carried the credential: %s", name, out)
 				}
 			}
-			for _, name := range []string{"cli json", "cli dry-run", "mcp sql"} {
+			for _, name := range []string{"cli json", "cli dry-run"} {
 				if !strings.Contains(outputs[name], "withheld") {
 					t.Errorf("%s was not withheld, so the case did not reach the credential: %s", name, outputs[name])
 				}
 			}
+			// An MCP tool result that is one JSON document has the leaf that
+			// carries a held value redacted rather than the whole result
+			// withheld (credential leak contract section 4, amended
+			// 2026-11-25): the row's data column is one string leaf, so it is
+			// masked and the notice does not appear. The redaction marker is
+			// the proof the stored row reached the kit.
+			if mcp := outputs["mcp sql"]; !strings.Contains(mcp, "[redacted]") || strings.Contains(mcp, "withheld") {
+				t.Errorf("mcp sql did not redact the credential's leaf, so the case did not reach the credential: %s", mcp)
+			}
+			// A redacted result may keep no piece of a held value either
+			// (contract section 2(b)): the source's credential, each form of it
+			// the stored row carries, and the other credentials the fixtures
+			// give the program.
+			qboAssertNoPiece(t, "mcp sql", outputs["mcp sql"], qboHeldForms(src.secret)...)
 
 			// Every file the runs wrote, except the credential store itself and
 			// the seeded store, which hold the credential by design.

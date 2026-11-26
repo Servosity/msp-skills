@@ -9,6 +9,7 @@ package credwire
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -74,8 +75,38 @@ func TestOrgsCreateNeverPrintsTheInvitationURL(t *testing.T) {
 		if strings.Contains(out, inviteToken) || strings.Contains(out, "portal.example/invite") {
 			t.Errorf("%s printed the invitation URL:\n%s", where, out)
 		}
+		if where == "mcp" {
+			// The MCP result is one JSON document: the invitation_url leaf is
+			// redacted, not the whole result (contract section 4, the MCP
+			// tool-result exception). The marker proves the answer was there.
+			if !strings.Contains(out, "[redacted]") || strings.Contains(out, "withheld") {
+				t.Errorf("%s did not redact the invitation leaf by leaf:\n%s", where, out)
+			}
+			assertNoPiece(t, where, out, invite, inviteToken, classKey)
+			continue
+		}
 		if !strings.Contains(out, "withheld") {
 			t.Errorf("%s printed no notice, so the invitation was not there to withhold:\n%s", where, out)
+		}
+	}
+}
+
+// assertNoPiece fails when out carries any 8-character piece of one of held,
+// raw or JSON-escaped (contract section 2(b): a piece of 8 or more characters
+// is a leak). A redacted MCP result can keep a piece beside the marker
+// ("zq7Wsink[redacted]"), which a whole-value scan misses; every window is
+// checked, so one surviving half of a value of 16 or more characters is
+// caught on its own.
+func assertNoPiece(t *testing.T, where, out string, held ...string) {
+	t.Helper()
+	for _, v := range held {
+		for i := 0; i+8 <= len(v); i++ {
+			w := v[i : i+8]
+			j, _ := json.Marshal(w)
+			if strings.Contains(out, w) || strings.Contains(out, string(j[1:len(j)-1])) {
+				t.Errorf("%s carries the 8-character piece %q of a held value:\n%s", where, w, out)
+				break
+			}
 		}
 	}
 }

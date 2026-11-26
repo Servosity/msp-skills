@@ -15,14 +15,17 @@ import (
 )
 
 // With an existing store and auth_header = "lowercasecredential123", MCP
-// sql {"query":"SELECT 'lowercasecredential123' AS sample"} must be refused
-// whole. Since synccpu (owner GO 2026-11-09) the store does not read statement
-// text, so the statement runs and the MCP server withholds the answer.
+// sql {"query":"SELECT 'lowercasecredential123' AS sample"} must never return
+// the credential. Since synccpu (owner GO 2026-11-09) the store does not read
+// statement text, so the statement runs and the MCP server redacts the value
+// in its JSON answer (credential-leak contract section 4: the carrying leaf
+// becomes "[redacted]") or, should redaction not apply, withholds it whole.
 //
-// The reviewer's credential shares the piece "credential" with every kit
-// notice, so the kit drops the notice from the reply too and the reply
-// cannot say which sink refused. The second run holds a credential that
-// shares no piece with any notice: there the reply names the MCP sink.
+// When withheld whole, the reviewer's credential shares the piece
+// "credential" with every kit notice, so the kit drops the notice from the
+// reply too and the reply cannot say which sink refused. The second run holds
+// a credential that shares no piece with any notice: there the reply names
+// the MCP sink.
 func TestKitMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 	cli, mcp := binaries(t)
 	for _, secret := range []string{"lowercasecredential123", "zq7Wsinkvalu3Kx"} {
@@ -43,15 +46,20 @@ func TestKitMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 		}
 
 		frames, stderr := mcpCall(t, mcp, s.env(), "sql", map[string]any{"query": "SELECT '" + secret + "' AS sample"})
+		for i := 0; i+8 <= len(secret); i++ {
+			// contract section 2(b): no 8-character piece survives redaction
+			requireAbsent(t, "MCP sql frames", frames, secret[i:i+8])
+		}
 		requireAbsent(t, "MCP sql frames", frames, secret)
 		requireAbsent(t, "MCP stderr", stderr, secret)
-		if !strings.Contains(frames, `"isError":true`) {
-			t.Errorf("%s: the sql tool did not fail; frames:\n%s", secret, frames)
+		redacted := strings.Contains(frames, `[redacted]`)
+		if !redacted && !strings.Contains(frames, `"isError":true`) {
+			t.Errorf("%s: the sql tool neither redacted nor failed; frames:\n%s", secret, frames)
 		}
-		if !strings.Contains(strings.ToLower(secret), "credential") && !strings.Contains(frames, credkit.Notice(credkit.SinkMCP)) {
+		if !redacted && !strings.Contains(strings.ToLower(secret), "credential") && !strings.Contains(frames, credkit.Notice(credkit.SinkMCP)) {
 			// synccpu: the store no longer reads statement text, so the statement
-			// runs and the MCP server withholds its answer whole
-			t.Errorf("%s: the answer was not withheld at the MCP sink; frames:\n%s", secret, frames)
+			// runs and the MCP server redacts or withholds its answer whole
+			t.Errorf("%s: the answer was neither redacted nor withheld at the MCP sink; frames:\n%s", secret, frames)
 		}
 
 		// An ordinary statement still runs.

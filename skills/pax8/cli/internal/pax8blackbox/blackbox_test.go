@@ -661,8 +661,12 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 		t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
 	}
 	assertNoEcho(t, "MCP session", out)
-	if !strings.Contains(out, kitNotice("mcp")) {
-		t.Fatalf("the MCP session withheld nothing; the echoes did not reach it:\n%.2000s", out)
+	assertNoPiece(t, "MCP session", out, secrets()...)
+	// A JSON tool result carrying the token comes back with that leaf redacted
+	// (credential-leak contract section 4); a non-JSON one is withheld whole.
+	// Either proves the echoes reached the kit.
+	if !strings.Contains(out, kitNotice("mcp")) && !strings.Contains(out, `[redacted]`) {
+		t.Fatalf("the MCP session withheld or redacted nothing; the echoes did not reach it:\n%.2000s", out)
 	}
 	// The same reads print their data from the quiet fake, as valid JSON.
 	e.useServer(quietServer(t))
@@ -787,5 +791,22 @@ func TestDryRunSendsNothing(t *testing.T) {
 	defer sv.mu.Unlock()
 	if sv.mints != 0 || len(sv.methods) != 0 {
 		t.Fatalf("--dry-run sent %d token request(s) and %v", sv.mints, sv.methods)
+	}
+}
+
+// assertNoPiece fails when any 8-character piece of a held secret appears in
+// out: credential-leak contract section 2(b) withholds every piece of 8 or
+// more characters, so a result the kit released with "[redacted]" in it must
+// carry none (e.g. "zq7Wsink[redacted]" exposes "zq7Wsink"). This also catches
+// one surviving half of a secret, whenever that half is 8 or more characters.
+func assertNoPiece(t *testing.T, where, out string, secrets ...string) {
+	t.Helper()
+	for _, s := range secrets {
+		for i := 0; i+8 <= len(s); i++ {
+			if strings.Contains(out, s[i:i+8]) {
+				t.Errorf("%s holds the piece %q of a held credential", where, s[i:i+8])
+				break
+			}
+		}
 	}
 }

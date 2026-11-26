@@ -275,34 +275,35 @@ func TestReadResultCredentialFieldsWithheld(t *testing.T) {
 		name, secret, method, result string
 		cli                          []string
 		mcp                          string
+		keep                         string // a non-credential member the redacted MCP result keeps
 	}{
 		{"license.get", "LKEY" + "-Z8QW-4N7P-2XKD", "getLicenseInfo",
 			`{"isAddon":false,"expiryDate":"2027-01-01T00:00:00","usedSlots":3,"totalSlots":10,"licenseKey":"%s"}`,
-			[]string{"license", "get"}, `{"endpoint_id":"license.get","params":{}}`},
+			[]string{"license", "get"}, `{"endpoint_id":"license.get","params":{}}`, "totalSlots"},
 		{"push.get", "pushTok" + "9Hc3Lw2Zq", "getPushEventSettings",
 			`{"status":1,"serviceType":"jsonRPC","serviceSettings":{"url":"https://siem.acme.example/hook","requireValidSslCertificate":true,"authorization":"Bearer %s"}}`,
-			[]string{"push", "get"}, `{"endpoint_id":"push.get","params":{}}`},
+			[]string{"push", "get"}, `{"endpoint_id":"push.get","params":{}}`, "siem.acme.example"},
 		{"packages.get", "unPw" + "Fq83Kd0Lz2", "getPackageDetails",
 			`{"packageName":"acme-default","language":"en_US","settings":{"uninstallPassword":"%s","scanMode":{"type":1}}}`,
-			[]string{"packages", "get", "--package-id", "5a37b660b1a43d99117b23c6"}, `{"endpoint_id":"packages.get","params":{"packageId":"5a37b660b1a43d99117b23c6"}}`},
+			[]string{"packages", "get", "--package-id", "5a37b660b1a43d99117b23c6"}, `{"endpoint_id":"packages.get","params":{"packageId":"5a37b660b1a43d99117b23c6"}}`, "acme-default"},
 		{"policies.get power user", "puPw" + "Mx72Nq4Rb9", "getPolicyDetails",
 			`{"id":"p1","name":"Default","settings":{"general":{"settings":{"powerUser":{"enabled":true,"password":"%s"}}}}}`,
-			policyCLI, policyMCP},
+			policyCLI, policyMCP, "powerUser"},
 		{"policies.get proxy", "pxPw" + "Hd61Ys3Tc8", "getPolicyDetails",
 			`{"id":"p1","name":"Default","settings":{"update":{"proxy":{"profile":1,"settings":{"server":"proxy.acme.example","port":8080,"username":"svc","password":"%s"}}}}}`,
-			policyCLI, policyMCP},
+			policyCLI, policyMCP, "proxy.acme.example"},
 		{"policies.get password protection", "pcVal" + "Wn48Jr2Ke7", "getPolicyDetails",
 			`{"id":"p1","name":"Default","settings":{"general":{"settings":{"passwordConfig":{"profile":1,"value":"%s"}}}}}`,
-			policyCLI, policyMCP},
+			policyCLI, policyMCP, "passwordConfig"},
 		{"policies.get SIEM key", "siemK" + "Tp93Gx5Hm1", "getPolicyDetails",
 			`{"id":"p1","name":"Default","settings":{"general":{"securityTelemetry":{"enabled":true,"siem":1,"proxy":{"profile":3},"config":{"url":"https://siem.acme.example","key":"%s"}}}}}`,
-			policyCLI, policyMCP},
+			policyCLI, policyMCP, "securityTelemetry"},
 		{"inventory.list", "INV" + "-K4R7-W2PZ-9QJM", "getNetworkInventoryItems",
 			`{"page":1,"pagesCount":1,"perPage":30,"total":1,"items":[{"id":"c1","name":"Acme","type":1,"details":{"licenseKey":"%s"}}]}`,
-			[]string{"inventory", "list"}, `{"endpoint_id":"inventory.list","params":{}}`},
+			[]string{"inventory", "list"}, `{"endpoint_id":"inventory.list","params":{}}`, "Acme"},
 		{"integrations.get", "itgPw" + "Vb5Kx8Lq3", "getIntegrationDetails",
 			`{"id":"i1","integrationType":"connectwise","specifics":{"url":"https://psa.acme.example","username":"svc","password":"%s"}}`,
-			[]string{"integrations", "get", "--integration-id", "678f89ef8fe5bb14010b3242"}, `{"endpoint_id":"integrations.get","params":{"integrationId":"678f89ef8fe5bb14010b3242"}}`},
+			[]string{"integrations", "get", "--integration-id", "678f89ef8fe5bb14010b3242"}, `{"endpoint_id":"integrations.get","params":{"integrationId":"678f89ef8fe5bb14010b3242"}}`, "psa.acme.example"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -311,7 +312,13 @@ func TestReadResultCredentialFieldsWithheld(t *testing.T) {
 			env := closedEnv(home, v.env(key)...)
 			assertAbsent(t, "CLI "+strings.Join(c.cli, " "), run(t, cliBin, env, c.cli...), c.secret)
 			assertAbsent(t, "CLI --json", run(t, cliBin, env, append(c.cli, "--json")...), c.secret)
-			assertAbsent(t, "MCP bitdefender_read", mcpCall(t, mcpBin, env, `{"name":"bitdefender_read","arguments":`+c.mcp+`}`), c.secret)
+			mcpOut := mcpCall(t, mcpBin, env, `{"name":"bitdefender_read","arguments":`+c.mcp+`}`)
+			assertAbsent(t, "MCP bitdefender_read", mcpOut, c.secret)
+			// The MCP result is redacted leaf by leaf (credkit redact.go): the
+			// credential is masked and the rest of the result still arrives.
+			if !strings.Contains(mcpOut, `\"[redacted]\"`) || strings.Contains(mcpOut, credkit.Notice(credkit.SinkMCP)) || !strings.Contains(mcpOut, c.keep) {
+				t.Errorf("MCP bitdefender_read was not redacted to %q with %q kept:\n%s", credkit.Redacted, c.keep, mcpOut)
+			}
 			if v.hits.Load() == 0 {
 				t.Error("no request reached the API stub, so nothing was returned")
 			}

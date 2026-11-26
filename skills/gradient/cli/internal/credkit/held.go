@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"unicode/utf8"
 )
 
 type heldEntry struct {
@@ -210,15 +211,31 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 	}
 	var parts []string
 	whole := map[string]bool{} // every part but a pair held with its user cut
+	// real is every part a value that is not a vendor's mask yields; a mask
+	// (contract 1) still updates an entry held already, never creates one.
+	real := map[string]bool{}
+	isReal := true
 	add := func(v string) {
-		if v != "" && !slices.Contains(parts, v) {
+		if v == "" {
+			return
+		}
+		if isReal {
+			real[v] = true
+		}
+		if !slices.Contains(parts, v) {
 			parts = append(parts, v)
 		}
 	}
 	part := func(v string) { add(v); whole[v] = true }
+	fromResp := strings.HasPrefix(source, "response:")
 	for _, v := range values {
-		part(v)
 		t := strings.TrimFunc(v, unicode.IsSpace)
+		if isReal = !(fromResp && vendorMask(t)); !isReal {
+			part(v)
+			part(t)
+			continue
+		}
+		part(v)
 		part(t)
 		// A scheme word in front ("Bearer x", "Basic x") is not the secret:
 		// the rest is held on its own as well, each auth parameter's value,
@@ -250,7 +267,6 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			}
 		}
 	}
-	fromResp := strings.HasPrefix(source, "response:")
 	own, declared := allowedLocked(source)
 	base := append(slices.Clone(own), extra...)
 	// A source with no declaration of its own (a request header) lends a
@@ -282,6 +298,9 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 				recordLocked(source) // contract 2: public text acquired while running
 				continue
 			}
+			if !real[p] {
+				continue // contract 1: a vendor's mask is not a credential
+			}
 			e = &heldEntry{src: source, resp: fromResp}
 			reg.vals[p] = e
 			reg.gen++
@@ -308,6 +327,27 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			bind(e, base)
 		}
 	}
+}
+
+// vendorMask reports whether v, a whole vendor response value, is one
+// punctuation or symbol character, repeated: what a vendor returns
+// in place of a stored secret ("********"). Held, it is no secret, and the
+// decoders rebuild it from ordinary text, so every later unit, and every
+// child's startup, would be refused.
+func vendorMask(v string) bool {
+	if !utf8.ValidString(v) {
+		return false
+	}
+	first, _ := utf8.DecodeRuneInString(v)
+	if first == utf8.RuneError || !(unicode.IsPunct(first) || unicode.IsSymbol(first)) {
+		return false
+	}
+	for _, r := range v {
+		if r != first {
+			return false
+		}
+	}
+	return true
 }
 
 // decodeBasic decodes a Basic credential in any base64 alphabet, padded or

@@ -13,7 +13,8 @@ import (
 // each answer that carries a credential reaches no output, from the CLI in
 // JSON and table form and from MCP (rewst_read, or rewst_execute with
 // confirm true for a GraphQL document); the credential kit withholds the
-// whole answer, so each output is its notice. The fake echoes nothing here,
+// whole answer, so each CLI output is its notice, and redacts each MCP leaf
+// that carries one (or withholds the whole result: contract section 4). The fake echoes nothing here,
 // so only a declared credential can make the kit withhold an answer (a
 // typed write's --stdin body is held itself, so the CLI's --stdin answers
 // are withheld either way). The credentials (spec.graphql):
@@ -60,7 +61,9 @@ func TestEveryDocumentedResponseCredentialIsHeld(t *testing.T) {
 	for _, c := range cases {
 		phases = append(phases, []map[string]any{c.mcp})
 	}
-	replies := mcpReplies(e.mcpPhases(t, phases...))
+	session := e.mcpPhases(t, phases...)
+	replies := mcpReplies(session)
+	var fetched []string // the response credentials the server has read so far
 	for i, c := range cases {
 		// The default run: MCP answers every case; the CLI runs one --stdin answer
 		// and the gzip-encoded pack config, in one form.
@@ -90,19 +93,36 @@ func TestEveryDocumentedResponseCredentialIsHeld(t *testing.T) {
 			}
 			assertNoEcho(t, fmt.Sprintf("output of %v", args), out)
 		}
+		// An MCP tool result that is one JSON document has each leaf that
+		// carries a credential replaced by "[redacted]" rather than being
+		// withheld whole (contract section 4, amended 2026-11-25); either
+		// proves the kit held the credential.
 		r := replies[i+1]
-		if !kitWithheld(r) {
-			t.Errorf("MCP %v: the answer carrying a credential was not withheld:\n%.1500s", c.mcp["arguments"], r)
+		if !kitWithheld(r) && !strings.Contains(r, "[redacted]") {
+			t.Errorf("MCP %v: the answer carrying a credential was neither redacted nor withheld:\n%.1500s", c.mcp["arguments"], r)
 		}
 		for _, cred := range c.cred {
 			for _, f := range echoForms(cred) {
-				if strings.Contains(r, f) {
+				// The Zstandard frame is out of contract (section 3's closed
+				// decoder list) on a redacted tool result: assertNoEchoMixed.
+				if f != zstdBase64(cred) && strings.Contains(r, f) {
 					t.Errorf("MCP %v returns the credential %q as %q", c.mcp["arguments"], cred, f)
 					break
 				}
 			}
 		}
-		assertNoEcho(t, fmt.Sprintf("MCP %v", c.mcp["arguments"]), r)
+		assertNoMCPEcho(t, fmt.Sprintf("MCP %v", c.mcp["arguments"]), mcpReplyText(session, i+1))
+		// rewst_read and rewst_execute run in the server, so from this answer
+		// on the server holds its credentials: neither it nor a later answer
+		// (the phases run in order) may keep a piece of one beside a redacted
+		// leaf.
+		fetched = union(fetched, c.cred...)
+		assertNoPiece(t, fmt.Sprintf("MCP %v", c.mcp["arguments"]), r, fetched...)
 	}
+	// The server held every one of them by the end: no piece of one on any
+	// line it wrote, stdout or stderr, replies, notifications and logs alike.
+	// The fixtures share no 8-character run with any key or ordinary text,
+	// so the session is scanned as written.
+	assertNoPiece(t, "MCP session (stdout and stderr)", session, fetched...)
 	checkOneAuth(t, sv, credEnv)
 }

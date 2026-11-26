@@ -100,6 +100,7 @@ type nas struct {
 	passwords        []string
 	requests         []string
 	hits             atomic.Int64
+	did              string // a trusted-device token the login mints, when set
 }
 
 func (n *nas) sent() string {
@@ -133,7 +134,12 @@ func startNAS(t *testing.T, sid string, answer func(w http.ResponseWriter, api, 
 		case api == "SYNO.API.Auth" && method == "login":
 			n.mu.Lock()
 			n.passwords = append(n.passwords, r.Form.Get("passwd"))
+			did := n.did
 			n.mu.Unlock()
+			if did != "" {
+				fmt.Fprintf(w, `{"success":true,"data":{"sid":%q,"synotoken":"Tok-%s","did":%q}}`, sid, sid, did)
+				return
+			}
 			fmt.Fprintf(w, `{"success":true,"data":{"sid":%q,"synotoken":"Tok-%s"}}`, sid, sid)
 		case api == "SYNO.API.Auth":
 			io.WriteString(w, `{"success":true,"data":{}}`)
@@ -236,7 +242,8 @@ func mcpCall(t *testing.T, bin string, env []string, args []string, calls ...str
 
 // TestRoundTwoCharacterCodesAreWithheld is the input the review's round 2 named:
 // a password as character codes in integral-decimal spelling, in an answer to
-// abb_settings, through both the MCP server and the CLI.
+// abb_settings, through both the MCP server and the CLI. The CLI withholds it
+// whole; the MCP server redacts the code that completes the match.
 func TestRoundTwoCharacterCodesAreWithheld(t *testing.T) {
 	cliBin, mcpBin := binaries(t)
 	const pw = "p@ssw0rd"
@@ -256,13 +263,17 @@ func TestRoundTwoCharacterCodesAreWithheld(t *testing.T) {
 			t.Fatalf("the NAS saw logins %q, so no answer came back:\nMCP: %s\nCLI: %s", n.logins(), mcpOut, cliOut)
 		}
 		// One code from inside the list, in any JSON layout or escaping level.
+		assertNoPiece(t, "MCP abb_settings", mcpOut, pw)
 		for label, out := range map[string]string{"MCP abb_settings": mcpOut, "CLI abb settings": cliOut} {
 			flat := strings.NewReplacer(" ", "", "\n", "", "\\n", "", "\t", "", `\`, "").Replace(out)
 			if strings.Contains(flat, strings.ReplaceAll(note[:len(note)/2], " ", "")) {
 				t.Errorf("%s shows the password as character codes:\n%s", label, out)
 			}
-			if !strings.Contains(out, "withheld") {
-				t.Errorf("%s: want the answer withheld, naming why:\n%s", label, out)
+			// The CLI withholds the answer whole, naming why; the MCP server may
+			// instead return the JSON answer with the carrying leaf redacted
+			// (credential-leak contract section 4).
+			if !strings.Contains(out, "withheld") && (label != "MCP abb_settings" || !strings.Contains(out, `[redacted]`)) {
+				t.Errorf("%s: want the answer withheld, naming why, or redacted:\n%s", label, out)
 			}
 		}
 	}
@@ -351,6 +362,15 @@ func TestNoHeldCredentialReachesAnyOutput(t *testing.T) {
 			_, _ = w.Write(b)
 		}
 	})
+	// The login mints the device token "minted-device" names, so every process
+	// that logs in holds it (dsm.go holds the login's did). Without this the
+	// fake never sends it, no process holds it, and its planted forms were
+	// hidden only because each answer also carried a held value and the kit
+	// withheld it whole; an MCP tool result is now redacted leaf by leaf
+	// (credential-leak contract section 4), which shows such a value as is.
+	srv.mu.Lock()
+	srv.did = secrets["minted-device"]
+	srv.mu.Unlock()
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	stores := []string{
@@ -435,6 +455,11 @@ func TestNoHeldCredentialReachesAnyOutput(t *testing.T) {
 	sort.Strings(leaks)
 	if len(leaks) > 0 {
 		t.Errorf("held credentials reached output (%d):\n%s", len(leaks), strings.Join(leaks, "\n"))
+	}
+	// The MCP results may come back redacted leaf by leaf; none may keep a
+	// piece of a held value.
+	for _, s := range secrets {
+		assertNoPiece(t, "mcp", outputs["mcp"], s)
 	}
 }
 
@@ -1515,5 +1540,22 @@ func TestEveryFileWriteGoesThroughTheKit(t *testing.T) {
 	sort.Strings(unchecked)
 	if len(unchecked) > 0 {
 		t.Fatalf("files that write past the kit (route them through it, or list the reason in writeExempt):\n%s", strings.Join(unchecked, "\n"))
+	}
+}
+
+// assertNoPiece fails when any 8-character piece of a held secret appears in
+// out: credential-leak contract section 2(b) withholds every piece of 8 or
+// more characters, so a result the kit released with "[redacted]" in it must
+// carry none (e.g. "zq7Wsink[redacted]" exposes "zq7Wsink"). This also catches
+// one surviving half of a secret, whenever that half is 8 or more characters.
+func assertNoPiece(t *testing.T, where, out string, secrets ...string) {
+	t.Helper()
+	for _, s := range secrets {
+		for i := 0; i+8 <= len(s); i++ {
+			if strings.Contains(out, s[i:i+8]) {
+				t.Errorf("%s holds the piece %q of a held credential", where, s[i:i+8])
+				break
+			}
+		}
 	}
 }

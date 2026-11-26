@@ -47,9 +47,7 @@ func TestKitWithholdsEveryReadingOfAHeldValue(t *testing.T) {
 						t.Errorf("%s printed the held value (%q):\n%s", where, a, got)
 					}
 				}
-				if !strings.Contains(got, "credkit: withheld") {
-					t.Errorf("%s: want the kit's notice:\n%s", where, got)
-				}
+				kitAssertCaught(t, where, got, tc.token)
 			}
 		})
 	}
@@ -107,9 +105,24 @@ func TestKitWithholdsAValueSplitOverLinesInOneJSONValue(t *testing.T) {
 				t.Errorf("%s printed part of the held value (%q):\n%s", where, part, got)
 			}
 		}
-		if !strings.Contains(got, "credkit: withheld") {
-			t.Errorf("%s: want the kit's notice:\n%s", where, got)
+		kitAssertCaught(t, where, got, held)
+	}
+}
+
+// kitAssertCaught: the CLI withholds the whole unit; an MCP tool result that is
+// one JSON document has the leaf that carried the value replaced by
+// "[redacted]" instead (docs/credential-leak-contract.md section 4).
+func kitAssertCaught(t *testing.T, where, got, held string) {
+	t.Helper()
+	if where == "mcp" {
+		if !strings.Contains(got, "[redacted]") || strings.Contains(got, "credkit: withheld") {
+			t.Errorf("%s: want the leaf redacted, not the result withheld whole:\n%s", where, got)
 		}
+		nb2AssertNoPiece(t, where, got, held)
+		return
+	}
+	if !strings.Contains(got, "credkit: withheld") {
+		t.Errorf("%s: want the kit's notice:\n%s", where, got)
 	}
 }
 

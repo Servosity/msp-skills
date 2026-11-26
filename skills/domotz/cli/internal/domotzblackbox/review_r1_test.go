@@ -14,7 +14,8 @@ package domotzblackbox
 // import path posts a record as given, so a numeric password there is the
 // same class. Under the credential kit a CLI preview that carries one is
 // withheld whole (an --input body is held by cliutil.HoldBody, a --stdin body
-// is held whole) and an MCP preview masks it (mcp-endpoint-write-confirm).
+// is held whole) and an MCP preview masks it (mcp-endpoint-write-confirm, or
+// the kit's leaf redaction where the mask keeps a number).
 // The liongard-only half of that test (a number under an
 // inspector field name inside a launchpoint's SecureConfig container) has no
 // Domotz counterpart: no Domotz request or response carries a vendor-marked
@@ -59,17 +60,46 @@ func TestNumericCredentialValuesNeverPrint(t *testing.T) {
 	got := out.String()
 	// Three MCP previews mask the number; a number under bare read is a count
 	// to the mask (cliutil.NumberIsCredential), so that preview carries the
-	// held value and the kit withholds it whole.
-	if !strings.Contains(got, "HQ numeric") || !strings.Contains(got, "dry_run") || strings.Count(got, "confirmation_required") != 3 ||
-		!strings.Contains(got, "[credkit: withheld from mcp") {
+	// held value and the kit redacts that leaf to "[redacted]" instead of
+	// withholding the preview whole (credential leak contract section 4,
+	// amended 2026-11-25): all four previews arrive and no MCP notice does.
+	if !strings.Contains(got, "HQ numeric") || !strings.Contains(got, "dry_run") || strings.Count(got, "confirmation_required") != 4 ||
+		!strings.Contains(got, `\"read\": \"[redacted]\"`) || strings.Contains(got, "[credkit: withheld from mcp") {
 		t.Fatalf("the previews did not run:\n%.3000s", got)
 	}
 	if strings.Contains(got, named) {
 		t.Errorf("output repeats the numeric credential %s:\n%.3000s", named, got)
 	}
+	// The redacted previews may keep no piece of a held value either
+	// (contract section 2(b)): "4826[redacted]" is no whole value, and an
+	// 8-character piece of the API key is a leak on its own.
+	assertNoPiece(t, "the previews", got, append(secrets(), named)...)
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
 	if len(sv.methods) != 0 {
 		t.Errorf("a preview sent %v", sv.methods)
+	}
+}
+
+// assertNoPiece fails when text carries any 8-character window of a value
+// (credential leak contract section 2(b): a piece of 8 or more characters
+// counts anywhere, so one surviving half is a leak on its own, not only both
+// halves together), or a value shorter than 8 whole. It is the check for
+// every MCP output that may be redacted.
+func assertNoPiece(t *testing.T, where, text string, values ...string) {
+	t.Helper()
+	for _, v := range values {
+		if len(v) < 8 {
+			if v != "" && strings.Contains(text, v) {
+				t.Errorf("%s carries the credential %q:\n%.3000s", where, v, text)
+			}
+			continue
+		}
+		for i := 0; i+8 <= len(v); i++ {
+			if w := v[i : i+8]; strings.Contains(text, w) {
+				t.Errorf("%s carries %q, an 8-character piece of a credential:\n%.3000s", where, w, text)
+				break
+			}
+		}
 	}
 }
