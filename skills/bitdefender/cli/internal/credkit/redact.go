@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -202,13 +204,31 @@ func redactJSONTokens(doc []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// encodeString is s as a JSON string, without HTML escaping.
+// encodeString is s as a JSON string, without HTML escaping. It builds the
+// bytes itself: a json.Encoder is an output call (the kit's exit-point
+// gate), and json.Marshal would escape <, > and & in every URL kept.
 func encodeString(s string) ([]byte, error) {
-	var b bytes.Buffer
-	enc := json.NewEncoder(&b)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(s); err != nil {
-		return nil, err
+	const (
+		hex = "0123456789abcdef"
+		bs  = 0x5c // backslash
+	)
+	b := make([]byte, 0, len(s)+2)
+	b = append(b, '"')
+	for _, r := range strings.ToValidUTF8(s, "\ufffd") {
+		switch {
+		case r == '"' || r == bs:
+			b = append(b, bs, byte(r))
+		case r == '\n':
+			b = append(b, bs, 'n')
+		case r == '\r':
+			b = append(b, bs, 'r')
+		case r == '\t':
+			b = append(b, bs, 't')
+		case r < 0x20 || r == '\u2028' || r == '\u2029':
+			b = append(b, bs, 'u', hex[r>>12&0xf], hex[r>>8&0xf], hex[r>>4&0xf], hex[r&0xf])
+		default:
+			b = utf8.AppendRune(b, r)
+		}
 	}
-	return bytes.TrimRight(b.Bytes(), "\n"), nil
+	return append(b, '"'), nil
 }

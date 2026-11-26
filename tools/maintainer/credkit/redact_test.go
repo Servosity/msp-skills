@@ -137,3 +137,21 @@ func assertNotContains(t *testing.T, out string, secrets ...string) {
 		}
 	}
 }
+
+// encodeString agrees with encoding/json on every rune class, without HTML
+// escaping.
+func TestRedactEncodeString(t *testing.T) {
+	for _, s := range []string{"", "plain", `q"b\s`, "nl\ncr\rtab\t\x01\x1f", "<a>&amp;", "\u2028\u2029", "ünïcødé 😀", "bad\xffutf8"} {
+		got, _ := encodeString(s)
+		var back string
+		if err := json.Unmarshal(got, &back); err != nil {
+			t.Fatalf("%q: invalid JSON %s: %v", s, got, err)
+		}
+		if want := strings.ToValidUTF8(s, "\ufffd"); back != want {
+			t.Errorf("%q: round trip = %q", s, back)
+		}
+		if strings.Contains(s, "<") && !strings.Contains(string(got), "<") {
+			t.Errorf("%q: HTML escaped: %s", s, got)
+		}
+	}
+}
