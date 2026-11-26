@@ -155,3 +155,44 @@ func TestRedactEncodeString(t *testing.T) {
 		}
 	}
 }
+
+// A held value the decoders assemble across neighbouring leaves (here eight
+// NUL bytes, which a run of zero members decodes to) is in no leaf on its
+// own; step 2 masks the fewest leaves that complete it and keeps the rest.
+func TestRedactMCPToolResultSpanningMatch(t *testing.T) {
+	resetForTest(Declarations{})
+	Hold("response:password", strings.Repeat("\x00", 8))
+	doc := `{"name":"Servidores Linux","flags":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"proxy":{"server":"192.168.100.251","port":3128}}`
+	if !withheld([]byte(doc)) {
+		t.Skip("the matcher no longer assembles this value across members")
+	}
+	res, out := callTool(t, toolReturning(mcp.NewToolResultText(doc)))
+	if res.IsError {
+		t.Fatalf("withheld instead of redacted: %s", out)
+	}
+	text := res.Content[0].(mcp.TextContent).Text
+	if !strings.Contains(text, `"name":"Servidores Linux"`) || !strings.Contains(text, `"server":"192.168.100.251","port":3128`) || !strings.Contains(text, Redacted) {
+		t.Errorf("redacted text = %s", text)
+	}
+	if n := strings.Count(text, Redacted); n > 12 {
+		t.Errorf("step 2 masked %d leaves: %s", n, text)
+	}
+}
+
+// A content piece that is clean on its own can still be withheld inside the
+// result's envelope; step 2 works on the whole result, so it is redacted too.
+func TestRedactMCPToolResultResidualUsesWholeResult(t *testing.T) {
+	resetForTest(Declarations{})
+	Hold("response:password", strings.Repeat("\x00", 8))
+	clean := mcp.NewToolResultText(`{"ok":true}`)
+	spanning := mcp.TextContent{Type: "text", Text: `{"z":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}`}
+	clean.Content = append(clean.Content, spanning)
+	b, _ := json.Marshal(clean)
+	if !withheld(b) {
+		t.Skip("the matcher no longer assembles this value")
+	}
+	res, out := callTool(t, toolReturning(clean))
+	if res.IsError || !strings.Contains(out, `{\"ok\":true}`) {
+		t.Errorf("result = %s", out)
+	}
+}
