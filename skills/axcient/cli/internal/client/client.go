@@ -12,11 +12,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	enetxhttp "github.com/enetx/http"
-	"github.com/enetx/surf"
 	"io"
 	"math"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -61,39 +60,21 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("%s %s returned HTTP %d: %s", e.Method, e.Path, e.StatusCode, e.Body)
 }
 
+// newHTTPClient builds the client for the spec's http_transport "standard":
+// net/http's own transport, cloned from the default so the environment proxy,
+// idle timeouts and dialer keep-alive survive. (The 4.24 engine emitted the
+// enetx/surf browser-impersonation client here regardless; github.com/enetx
+// was deleted and its modules no longer resolve.) ResponseHeaderTimeout
+// tracks --timeout so a slow endpoint is bounded by the user's flag and not a
+// package default; a client built without a jar keeps session cookies, as
+// surf's Session() did.
 func newHTTPClient(timeout time.Duration, jar http.CookieJar) *http.Client {
-	builder := surf.NewClient().
-		Builder().
-		Impersonate().
-		Chrome().
-		Timeout(timeout)
-	builder = builder.ForceHTTP2()
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.ResponseHeaderTimeout = timeout
 	if jar == nil {
-		builder = builder.Session()
+		jar, _ = cookiejar.New(nil) // never fails: nil options
 	}
-	surfClient := builder.Build().Unwrap()
-	// Surf's underlying *http.Transport sets ResponseHeaderTimeout to
-	// its package default (10s in surf v1.x), which caps how long we
-	// wait for the FIRST response byte independent of the overall
-	// client Timeout. Slow-streaming endpoints (RAG queries, LLM
-	// completions, server-side rendering) routinely take longer than
-	// that to emit headers; without this override the user-facing
-	// --timeout flag has no effect on transport-layer cutoffs and
-	// requests fail with "net/http: timeout awaiting response headers"
-	// at the package default regardless of --timeout. Override so the
-	// transport-layer ceiling tracks the user's intent.
-	// surf's GetTransport returns *enetxhttp.Transport (surf's HTTP fork
-	// used for browser-impersonate features), NOT *net/http.Transport,
-	// so the assertion targets the enetx package's Transport type.
-	if t, ok := surfClient.GetTransport().(*enetxhttp.Transport); ok {
-		t.ResponseHeaderTimeout = timeout
-	}
-	httpClient := surfClient.Std()
-	httpClient.Timeout = timeout
-	if jar != nil {
-		httpClient.Jar = jar
-	}
-	return httpClient
+	return &http.Client{Timeout: timeout, Jar: jar, Transport: tr}
 }
 
 func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
@@ -127,7 +108,10 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		// cross-domain 3xx (open redirect or partner handoff) must not
 		// receive the auth credential, even though we are inside
 		// CheckRedirect where Go's automatic stripping has already run.
-		if req.URL.Host == via[0].URL.Host {
+		// Hand-fix (handfixes.json redirect-key-same-origin): the gate is the
+		// origin, scheme included, so an https -> http hop to the same host
+		// does not send the key in clear text.
+		if req.URL.Host == via[0].URL.Host && strings.EqualFold(req.URL.Scheme, via[0].URL.Scheme) {
 			if h, err := c.authHeader(req.Context()); err == nil && h != "" {
 				req.Header.Set("X-Api-Key", h)
 			}

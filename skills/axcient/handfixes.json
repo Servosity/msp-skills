@@ -1049,6 +1049,46 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "standard-http-transport-no-surf",
+   "class": "dead-dependency",
+   "summary": "newHTTPClient builds net/http's own transport (a clone of the default, ResponseHeaderTimeout = --timeout, a cookie jar when none is given) instead of the enetx/surf browser-impersonation client; go.mod carries no github.com/enetx module.",
+   "why": "The spec declares http_transport \"standard\", but the 4.24.0 engine emitted the surf client regardless. The github.com/enetx organization was deleted and proxy.golang.org no longer serves github.com/enetx/http3 v1.0.7, so a clean build of axcient failed in CI at module download (PR #730, 2026-11-27). TestHTTPClientIsStandardTransport pins it. A reprint on a press that emits net/http for a standard transport retires this entry; a 4.24-era reprint would bring surf back and fail to build.",
+   "status": "active",
+   "spec_encode_followup": "None needed: the spec already says standard; current press versions emit net/http for it (huntress, hudu at 4.34.0).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "tr := http.DefaultTransport.(*http.Transport).Clone()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "github.com/enetx/surf"
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "github.com/enetx/"
+    }
+   ]
+  },
+  {
+   "id": "redirect-key-same-origin",
+   "class": "secret-echo",
+   "summary": "CheckRedirect re-applies X-Api-Key only when the hop keeps the starting request's scheme and host; any other hop, an https -> http downgrade to the same host included, has the key deleted.",
+   "why": "The generated gate compared URL.Host only, so a 3xx from https://axapi.axcient.com to http://axapi.axcient.com sent the API key in clear text (Codex review of PR #731, 2026-11-27, pre-existing). TestRedirectKeepsKeyOnlyOnSameOrigin pins both directions.",
+   "status": "active",
+   "spec_encode_followup": "Press: the generated CheckRedirect same-host gate should compare scheme as well as host for every auth header it re-applies.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if req.URL.Host == via[0].URL.Host && strings.EqualFold(req.URL.Scheme, via[0].URL.Scheme) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

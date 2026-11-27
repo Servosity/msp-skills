@@ -4,6 +4,14 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.23] - unreleased
+
+### Fixed
+- **axcient builds again.** The HTTP client came from `github.com/enetx/surf`, whose GitHub organization was deleted; its modules no longer download, so every clean build failed. The client now uses Go's standard `net/http` transport, which is what the connector's spec asked for. It still honours `--timeout` for the wait on response headers and keeps session cookies. Requests now carry Go's default User-Agent instead of a Chrome one.
+
+### Security
+- **A redirect from https to http no longer carries the API key.** The client re-sent `X-Api-Key` on any redirect to the same host, so a redirect to the plain-http address of that host would have sent the key unencrypted. The key now follows a redirect only when both the scheme and the host stay the same.
+
 ## [0.2.22] - 2026-11-14
 
 ### Security
