@@ -63,7 +63,10 @@ Rules for the held set:
   sink.
 - No exemption for length, strength or type. Numbers count.
 - A value is exempt only when the connector's ledger declares it an identifier, with a reason, or when it is a value
-  acquired while running that occurs, as written, in public text (section 2).
+  acquired while running that occurs, as written, in public text (section 2), or when a vendor response field's whole
+  value (spaces at either end aside) is one punctuation or symbol character, repeated: the vendor's mask in place of a
+  stored secret, such as `********` (amended 2026-11-27). The field's value is judged whole: every part derived from a
+  value that is not a mask (`****` from `Bearer ****`) is held, and the same mask from any other source is held.
 - Every member of a duplicate key is held.
 - Values stay held until the process exits.
 - A child process gets the held set or is not started.
@@ -292,7 +295,16 @@ Also:
 - A unit whose budget is spent (section 3) is withheld exactly the same way.
 - No byte of a unit reaches its sink before the whole unit has been checked. A timer, a full buffer or a stalled reader
   never releases part of a unit.
-- Partial redaction is not used.
+- Partial redaction is not used, with one exception: an MCP tool result. Each piece of its content that is one JSON
+  document is rewritten, keeping member order, with every leaf (string, number, literal; never an object key) that would
+  be withheld on its own replaced by `"[redacted]"` (a marker that is not a vendor's own mask, such as `***`, which a
+  vendor may return and the kit then holds). The rewritten result is checked whole as above and reaches the client only
+  when clean; otherwise the whole result is withheld (amended 2026-11-25). A match the decoders assemble across leaves
+  (character codes, a run of members) is in no leaf on its own, so its result is withheld whole: masking part of it would
+  leave the rest readable. Redaction runs only on a match the check found: a result whose check spent its budget, or an
+  unknown held set, is withheld whole, as is a result with a piece that would be withheld and is not one JSON document,
+  with an object key that would be withheld on its own (masked sibling keys would collide), with a leaf whose own check
+  spent its budget, larger than 512 KiB as serialized, or nested deeper than 64 (amended 2026-11-27).
 - If the output layer cannot be installed, the program exits before writing anything.
 
 ## 5. Sinks covered

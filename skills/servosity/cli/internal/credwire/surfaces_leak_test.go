@@ -236,7 +236,10 @@ func mcpReloadCarriesNothing(t *testing.T, mcp, body, carried string, silent boo
 }
 
 // A statement carrying a held value runs (synccpu: the store does not read
-// statement text) and its answer is withheld whole; an ordinary one still runs.
+// statement text) and its answer reaches the client with the value redacted
+// (credential-leak contract section 4: a JSON tool result has the carrying
+// leaf replaced by "[redacted]") or, should redaction not apply, withheld
+// whole; an ordinary one still runs.
 func TestMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 	t.Parallel()
 	cli, mcp := binaries(t)
@@ -248,9 +251,9 @@ func TestMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 		t.Fatalf("could not create the store (exit %d): %s", res.code, res.all())
 	}
 	frames, stderr := mcpCall(t, mcp, env, "sql", map[string]any{"query": "SELECT '" + secret + "' AS sample"})
-	requireAbsent(t, "MCP sql", frames+stderr, secret)
-	if !strings.Contains(frames, credkit.Notice(credkit.SinkMCP)) { // synccpu: the store does not read statement text
-		t.Errorf("the answer was not withheld at the MCP sink; frames:\n%s", frames)
+	requireAbsent(t, "MCP sql", frames+stderr, heldPieces(secret)...)
+	if !strings.Contains(frames, credkit.Notice(credkit.SinkMCP)) && !strings.Contains(frames, `[redacted]`) { // synccpu: the store does not read statement text
+		t.Errorf("the answer was neither redacted nor withheld at the MCP sink; frames:\n%s", frames)
 	}
 	frames, _ = mcpCall(t, mcp, env, "sql", map[string]any{"query": "SELECT 'an ordinary value' AS sample"})
 	if !strings.Contains(frames, "an ordinary value") {
@@ -396,4 +399,15 @@ func TestPlainSyncSkipsBinaryResources(t *testing.T) {
 	if !f.sawAuth("Token " + syntheticToken) {
 		t.Errorf("the API never saw the token, so this test proved nothing:\n%s", stderr.String())
 	}
+}
+
+// heldPieces is v and every 8-character piece of it, the forms the
+// credential-leak contract (section 2) requires the kit to catch in a redacted
+// MCP result.
+func heldPieces(v string) []string {
+	forms := []string{v}
+	for i := 0; i+8 <= len(v); i++ {
+		forms = append(forms, v[i:i+8])
+	}
+	return forms
 }

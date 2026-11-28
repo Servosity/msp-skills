@@ -125,7 +125,7 @@ const (
 	bbBOMResp       = "BomRespSecret-6a1c"                  // an api_key a secret org variable's pack config names, BOM-prefixed answer
 	bbGzipResp      = "GzipRespToken-4f2a9c1e"              // a pack config's integration access_token (gzip-encoded answer)
 	bbRefreshResp   = "refreshRespToken-8e2d4b6f0a"         // a pack config's integration refresh_token (gzip)
-	bbClientSecResp = "clientSecretResp-5f1b3d7c9e"         // a pack config's integration client_secret (gzip)
+	bbClientSecResp = "pkcfgIntgResp-" + "5f1b3d7c9e"       // a pack config's integration client value (gzip), from a response
 	bbEncKey        = "cQ7vZr2k-" + "6d0a2e8c4f71Wm"        // a pack config's encryption_key (a qualified key name)
 	bbPairUser      = "sso-q8Wm3Tz1Kd5f"                    // a pack config's auth_username (the identity half of the pair)
 	bbCredUser      = "jdoe-zx9Kq2wPm4Rb"                   // a pack config's credentials.username (inside a credential container)
@@ -293,7 +293,7 @@ func echoForms(s string) []string {
 		url.QueryEscape(s),
 		string(pem.EncodeToMemory(&pem.Block{Type: "REWST API TOKEN", Bytes: []byte(s)})),
 		gzipBase64(s),
-		base64.StdEncoding.EncodeToString(zstdRLEFrame(s)),
+		zstdBase64(s),
 	}
 	echoFormCache.Store(s, forms)
 	return forms
@@ -1372,6 +1372,18 @@ func (e *bbEnv) mcpPhases(t *testing.T, phases ...[]map[string]any) string {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
+	held := e.startupHeld()
+	var marked strings.Builder // stdout, each phase's part under an mcpStdoutMark naming what was held
+	cut := 0
+	mark := func(final bool) {
+		so := out.String()
+		end := len(so)
+		if !final {
+			end = cut + strings.LastIndex(so[cut:], "\n") + 1
+		}
+		marked.WriteString(heldMark(mcpStdoutMark, held) + "\n" + so[cut:end])
+		cut = end
+	}
 	enc := json.NewEncoder(stdin)
 	_ = enc.Encode(map[string]any{"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": map[string]any{
 		"protocolVersion": "2025-03-26", "capabilities": map[string]any{}, "clientInfo": map[string]any{"name": "t", "version": "1"}}})
@@ -1385,6 +1397,13 @@ func (e *bbEnv) mcpPhases(t *testing.T, phases ...[]map[string]any) string {
 		for _, c := range calls {
 			id++
 			_ = enc.Encode(map[string]any{"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": c})
+			// A value a call itself carries is the process's from then on.
+			arg := js(c)
+			for _, sec := range secrets() {
+				if strings.Contains(arg, sec) {
+					held = union(held, sec)
+				}
+			}
 		}
 	waiting:
 		for time.Now().Before(deadline) && len(mcpReplies(out.String())) < id+1 {
@@ -1394,6 +1413,7 @@ func (e *bbEnv) mcpPhases(t *testing.T, phases ...[]map[string]any) string {
 			case <-time.After(100 * time.Millisecond):
 			}
 		}
+		mark(false)
 	}
 	_ = stdin.Close()
 	select {
@@ -1401,20 +1421,119 @@ func (e *bbEnv) mcpPhases(t *testing.T, phases ...[]map[string]any) string {
 	case <-time.After(20 * time.Second):
 		_ = cmd.Process.Kill()
 	}
-	return out.String() + "\n" + errb.String()
+	mark(true)
+	return marked.String() + "\n" + heldMark(mcpStderrMark, held) + "\n" + errb.String()
 }
 
-// mcpReplies maps each JSON-RPC reply an MCP session wrote to its request id.
-func mcpReplies(out string) map[int]string {
-	replies := map[int]string{}
+// startupHeld is every secret the MCP server holds from its start: one in
+// its environment, its config file (REWST_CONFIG) or the credential store.
+func (e *bbEnv) startupHeld() []string {
+	var text strings.Builder
+	for _, kv := range e.env {
+		text.WriteString(kv + "\n")
+		if v, ok := strings.CutPrefix(kv, "REWST_CONFIG="); ok {
+			b, _ := os.ReadFile(v)
+			text.Write(b)
+		}
+	}
+	_ = filepath.WalkDir(e.home, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.HasPrefix(d.Name(), "credentials") {
+			b, _ := os.ReadFile(path)
+			text.Write(b)
+		}
+		return nil
+	})
+	var held []string
+	for _, sec := range secrets() {
+		if strings.Contains(text.String(), sec) {
+			held = append(held, sec)
+		}
+	}
+	return held
+}
+
+// heldMark is mark naming the secrets held, by their index in secrets()
+// (never a value, which the scans would then find).
+func heldMark(mark string, held []string) string {
+	var idx []string
+	for i, sec := range secrets() {
+		if slices.Contains(held, sec) {
+			idx = append(idx, strconv.Itoa(i))
+		}
+	}
+	return mark + " held " + strings.Join(idx, " ")
+}
+
+// mcpStdoutMark and mcpStderrMark open a part of the server's stdout and its
+// stderr in what mcpPhases returns, so a reader keeps the two channels apart
+// even when several sessions are joined: a line is on stderr from an
+// mcpStderrMark line to the next mcpStdoutMark line. Each mark line also
+// names (heldMark) secrets the server surely held by the end of that part:
+// what it held from its start (its environment, config file and credential
+// store) and what the calls it was sent carried. A value an answer of the
+// fake carried is left out: the novels run as CLI children (cobratree), and a
+// value only a child read is not held by the server, while the fake cannot
+// tell the two apart; TestEveryDocumentedResponseCredentialIsHeld reads the
+// pieces of each answer's own credentials. Neither mark is JSON, so neither
+// is a frame.
+const (
+	mcpStdoutMark = "--- rewstblackbox: MCP server stdout ---"
+	mcpStderrMark = "--- rewstblackbox: MCP server stderr ---"
+)
+
+// mcpLines calls fn for each line of out with whether it is on the server's
+// stdout and the secrets held for it. Text with no mark (one reply line on
+// its own) is stdout, with every secret held.
+func mcpLines(out string, fn func(line string, stdout bool, held []string)) {
+	stdout, held := true, secrets()
 	for _, line := range strings.Split(out, "\n") {
+		if rest, ok := strings.CutPrefix(line, mcpStdoutMark+" held"); ok {
+			stdout, held = true, heldFromMark(rest)
+		} else if rest, ok := strings.CutPrefix(line, mcpStderrMark+" held"); ok {
+			stdout, held = false, heldFromMark(rest)
+		} else {
+			fn(line, stdout, held)
+		}
+	}
+}
+
+func heldFromMark(idx string) []string {
+	var held []string
+	for _, f := range strings.Fields(idx) {
+		if i, err := strconv.Atoi(f); err == nil && i >= 0 && i < len(secrets()) {
+			held = append(held, secrets()[i])
+		}
+	}
+	return held
+}
+
+// mcpReplyText is the reply to id in an mcpPhases output, under the mark
+// that governs it, for assertNoMCPEcho.
+func mcpReplyText(out string, id int) string {
+	var got string
+	mcpLines(out, func(line string, stdout bool, held []string) {
 		var msg struct {
 			ID *int `json:"id"`
 		}
-		if json.Unmarshal([]byte(line), &msg) == nil && msg.ID != nil {
+		if stdout && json.Unmarshal([]byte(line), &msg) == nil && msg.ID != nil && *msg.ID == id {
+			got = heldMark(mcpStdoutMark, held) + "\n" + line
+		}
+	})
+	return got
+}
+
+// mcpReplies maps each JSON-RPC reply an MCP session wrote to its stdout to
+// its request id.
+func mcpReplies(out string) map[int]string {
+	replies := map[int]string{}
+	mcpLines(out, func(line string, stdout bool, _ []string) {
+		var msg struct {
+			ID *int `json:"id"`
+		}
+		if stdout && json.Unmarshal([]byte(line), &msg) == nil && msg.ID != nil {
 			replies[*msg.ID] = line
 		}
-	}
+	})
 	return replies
 }
 
@@ -1500,6 +1619,91 @@ func assertNoEchoIn(t *testing.T, where, text string, halvesToo bool) {
 		}
 	}
 }
+
+// assertNoMCPEcho is assertNoEcho for the output of one MCP session.
+func assertNoMCPEcho(t *testing.T, where, mcp string) {
+	t.Helper()
+	assertNoEchoMixed(t, where, "", mcp)
+}
+
+// assertNoEchoMixed is assertNoEcho over other (CLI output and any other
+// non-MCP text) and mcp (the output of MCP sessions) read together, with one
+// form left out on MCP tool results alone: the Zstandard frame. A Zstandard
+// frame is not on the closed decoder list of the credential leak contract
+// (section 3), so the kit cannot read a held value through one: the P2
+// TestZstdFrameOfHeldValueKnownP2. Since the kit redacts an MCP tool result
+// leaf by leaf (contract section 4, amended 2026-11-25) rather than
+// withholding it whole, the fake's echo of the frame, a leaf no in-contract
+// reading matches, now reaches the client beside the "[redacted]" leaves.
+// Every other form of every secret, both halves of one and its case-folded
+// copy are still checked across all of it, and the frame is still checked on
+// the CLI output, on the MCP server's stderr and on every stdout frame that is
+// not a result.
+//
+// A redacted result must not keep part of a credential either: no
+// 8-character window (a piece, contract section 2(b)) of a secret the server
+// held for that line, and so no single half of 8 or more characters of one,
+// may appear on any line of the MCP output, stdout or stderr. Only the
+// secrets held there are read for pieces: a fixture's own text shares
+// 8-character runs with secrets a given process never holds (the GraphQL
+// field auth0ClientSecret with an older client-secret fixture, a fixture UUID with
+// configFileAccess), and a piece of a value the process does not hold is not
+// a leak (contract section 2 judges held credentials).
+func assertNoEchoMixed(t *testing.T, where, other, mcp string) {
+	t.Helper()
+	var nonResults strings.Builder
+	mcpLines(mcp, func(line string, stdout bool, held []string) {
+		var msg struct {
+			Result json.RawMessage `json:"result"`
+		}
+		if !stdout || json.Unmarshal([]byte(line), &msg) != nil || len(msg.Result) == 0 {
+			nonResults.WriteString(line + "\n")
+		}
+		assertNoPiece(t, where, line, held...)
+	})
+	all := other + "\n" + mcp
+	noResults := other + "\n" + nonResults.String()
+	folded := foldedAlnum(all)
+	for _, s := range secrets() {
+		frame := zstdBase64(s)
+		for _, f := range echoForms(s) {
+			in := all
+			if f == frame {
+				in = noResults
+			}
+			if strings.Contains(in, f) {
+				t.Errorf("%s holds a credential as %q", where, f)
+			}
+		}
+		if a, b := halves(s); strings.Contains(all, a) && strings.Contains(all, b) {
+			t.Errorf("%s holds both halves of %q", where, s)
+		}
+		if n := foldedAlnum(s); len(n) >= foldedMinAlnum && strings.Contains(folded, n) {
+			t.Errorf("%s holds %q case-folded or re-separated", where, s)
+		}
+	}
+}
+
+// assertNoPiece fails when text holds any 8-character window of a secret (a
+// piece of a credential, which the leak contract withholds: section 2(b)),
+// and so when it holds one half of 8 or more characters of one on its own.
+func assertNoPiece(t *testing.T, where, text string, secrets ...string) {
+	t.Helper()
+	for _, s := range secrets {
+		if a, b := halves(s); len(a) >= 8 && strings.Contains(text, a) || len(b) >= 8 && strings.Contains(text, b) {
+			t.Errorf("%s holds one half of %q", where, s)
+		}
+		for i := 0; i+8 <= len(s); i++ {
+			if strings.Contains(text, s[i:i+8]) {
+				t.Errorf("%s holds the piece %q of %q", where, s[i:i+8], s)
+				break
+			}
+		}
+	}
+}
+
+// zstdBase64 is the Zstandard form echoForms sends for s.
+func zstdBase64(s string) string { return base64.StdEncoding.EncodeToString(zstdRLEFrame(s)) }
 
 // cliCall is one CLI run: its arguments and what it reads on stdin.
 type cliCall struct {
@@ -1997,7 +2201,7 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 			read("api-clients.get", map[string]any{"id": bbUnauth}),
 			read("pages.get", map[string]any{"limit": 100, "offset": 100}))
 	}
-	assertNoEcho(t, "MCP session", e.mcpCalls(t, mcp))
+	assertNoMCPEcho(t, "MCP session", e.mcpCalls(t, mcp))
 	if n, all := sv.sawKey(bbStored); n == 0 {
 		t.Fatalf("no request carried the stored token as Authorization: Bearer (saw %d distinct values); the battery ran unauthenticated", len(all))
 	}
@@ -2167,7 +2371,7 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 			if !strings.Contains(out, fmt.Sprintf(`"id":%d`, len(mcp))) {
 				t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
 			}
-			assertNoEcho(t, "MCP session", out)
+			assertNoMCPEcho(t, "MCP session", out)
 			if !strings.Contains(out, "HQ-Record") && !kitWithheld(out) {
 				t.Fatalf("MCP results answered nothing:\n%.2000s", out)
 			}
@@ -2408,7 +2612,8 @@ func TestOriginPinNeverMovesTheKey(t *testing.T) {
 			tool("roi", map[string]any{"org": id}),
 			execute("pack-delete-responses.delete", map[string]any{"packId": id}))
 	}
-	out.WriteString(e.mcpCalls(t, mcpCalls))
+	var mcpOut strings.Builder // MCP output: assertNoEchoMixed
+	mcpOut.WriteString(e.mcpCalls(t, mcpCalls))
 	// Every request reached the fake: the REST-shaped reads and the GraphQL
 	// POSTs alike.
 	var gets, posts int
@@ -2465,7 +2670,7 @@ func TestOriginPinNeverMovesTheKey(t *testing.T) {
 			if len(refused.FindAllString(mcp, -1)) < 2 {
 				t.Errorf("MCP calls with a %s base URL: want a refusal twice, got:\n%.2000s", name, mcp)
 			}
-			out.WriteString(mcp)
+			mcpOut.WriteString(mcp)
 		}
 	}
 	if d := trapDials(); len(d) != before {
@@ -2476,7 +2681,7 @@ func TestOriginPinNeverMovesTheKey(t *testing.T) {
 		t.Errorf("the other host was contacted %d time(s)", sv.offHost)
 	}
 	sv.mu.Unlock()
-	assertNoEcho(t, "origin-pin runs", out.String())
+	assertNoEchoMixed(t, "origin-pin runs", out.String(), mcpOut.String())
 	checkOneAuth(t, sv, credEnv)
 }
 
@@ -2632,14 +2837,15 @@ func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {
 			create, del, mutation, sv.allMethods(), out)
 	}
 	// The mutation answered (its answer carries an auth0ClientSecret, a
-	// declared response credential, so the kit withholds it whole).
+	// declared response credential, so the kit redacts that leaf or withholds
+	// the answer whole: contract section 4).
 	if r := mcpReplies(out)[3]; !kitWithheld(r) && !strings.Contains(r, bbAPIClientName) {
 		t.Errorf("confirm true: the mutation answered nothing:\n%.1500s", r)
 	}
 	if r := mcpReplies(out)[4]; r == "" || strings.Contains(r, "Preview only") || strings.Contains(r, "dry run") || !strings.Contains(r, "input") {
 		t.Errorf("confirm true did not run the mirrored import as given:\n%.1500s", r)
 	}
-	assertNoEcho(t, "MCP confirmed writes", out)
+	assertNoMCPEcho(t, "MCP confirmed writes", out)
 	checkOneAuth(t, sv, credEnv)
 }
 
@@ -2731,12 +2937,13 @@ func TestMCPSplitAcrossPagesWithheld(t *testing.T) {
 	if page2 == 0 {
 		t.Fatalf("the second page was never asked for; the test did not run:\n%.2000s", out)
 	}
-	assertNoEcho(t, "MCP session", out)
+	assertNoMCPEcho(t, "MCP session", out)
 }
 
 // Over-withholding control: the MCP result carrying half a held credential
 // (a page named with half the API token, 18 characters, a piece the leak
-// contract counts: section 2(b)) is withheld whole, and later unrelated
+// contract counts: section 2(b)) has that leaf redacted, or is withheld
+// whole (contract section 4, amended 2026-11-25), and later unrelated
 // results of the same session (an organizations read, then a write preview)
 // are still delivered. The fake runs quiet and bare, so only the split
 // carries a held value.
@@ -2750,8 +2957,8 @@ func TestMCPSessionHalfKeepsLaterResults(t *testing.T) {
 		[]map[string]any{read("organizations.get", map[string]any{})},
 		[]map[string]any{execute("tags.create", map[string]any{"name": "HQ-Record preview tag", "orgId": bbOrgID})})
 	replies := mcpReplies(out)
-	if r := replies[1]; !kitWithheld(r) {
-		t.Errorf("the page carrying half the token was not withheld:\n%.1500s", r)
+	if r := replies[1]; !kitWithheld(r) && !strings.Contains(r, "[redacted]") {
+		t.Errorf("the page carrying half the token was neither redacted nor withheld:\n%.1500s", r)
 	}
 	if r := replies[2]; !strings.Contains(r, bbOrgName) {
 		t.Errorf("the organizations read after a delivered half was withheld:\n%.1500s", r)
@@ -2759,14 +2966,14 @@ func TestMCPSessionHalfKeepsLaterResults(t *testing.T) {
 	if r := replies[3]; !strings.Contains(r, "confirmation_required") {
 		t.Errorf("the preview after a delivered half was withheld:\n%.1500s", r)
 	}
-	assertNoEcho(t, "MCP session", out)
+	assertNoMCPEcho(t, "MCP session", out)
 }
 
 // A record that splits a held token across two adjacent values, a line
-// break and a space (the fake's "split" member on one API client) is
-// withheld whole: each half is a piece of 8 or more characters (leak
-// contract section 2(b)), and the kit withholds the whole MCP result that
-// carries one. The fake runs quiet and bare, so only the split carries a
+// break and a space (the fake's "split" member on one API client) never
+// reaches the client: each half is a piece of 8 or more characters (leak
+// contract section 2(b)), and the kit redacts each leaf that carries one, or
+// withholds the whole MCP result (contract section 4, amended 2026-11-25). The fake runs quiet and bare, so only the split carries a
 // held value.
 func TestMCPSplitRecordWithheldWhole(t *testing.T) {
 	budget(t)
@@ -2774,10 +2981,10 @@ func TestMCPSplitRecordWithheldWhole(t *testing.T) {
 	sv.quiet, sv.bare = true, true
 	e := newEnv(t, sv, credEnv)
 	out := e.mcpCalls(t, []map[string]any{read("api-clients.get", map[string]any{"id": bbAPIClientID})})
-	if r := mcpReplies(out)[1]; !kitWithheld(r) {
-		t.Errorf("api-clients.get with a split token was not withheld:\n%.2000s", r)
+	if r := mcpReplies(out)[1]; !kitWithheld(r) && !strings.Contains(r, "[redacted]") {
+		t.Errorf("api-clients.get with a split token was neither redacted nor withheld:\n%.2000s", r)
 	}
-	assertNoEcho(t, "MCP api-clients.get", out)
+	assertNoMCPEcho(t, "MCP api-clients.get", out)
 }
 
 // P2 (a wrong request, not a leak; config.go AuthHeader, a generated file):

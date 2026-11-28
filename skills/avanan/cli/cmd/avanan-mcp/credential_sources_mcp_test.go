@@ -51,6 +51,39 @@ func assertMCPNoCredential(t *testing.T, where, text, cred string) {
 	}
 }
 
+// assertMCPNoPiece fails when text carries any 8-character piece of one of
+// held, raw or JSON-escaped (contract section 2(b): a piece of 8 or more
+// characters is a leak). A redacted MCP result can keep a piece beside the
+// marker ("zq7Wsink[redacted]"), which the whole-value scan of
+// assertMCPNoCredential misses; every window is checked, so one surviving
+// half of a value of 16 or more characters is caught on its own. A value
+// shorter than 8 has no such piece; the whole-value scan covers it.
+func assertMCPNoPiece(t *testing.T, where, text string, held ...string) {
+	t.Helper()
+	for _, v := range held {
+		for i := 0; i+8 <= len(v); i++ {
+			w := v[i : i+8]
+			j, _ := json.Marshal(w)
+			if strings.Contains(text, w) || strings.Contains(text, strings.Trim(string(j), `"`)) {
+				t.Errorf("%s carries the 8-character piece %q of a held value:\n%s", where, w, text)
+				break
+			}
+		}
+	}
+}
+
+// heldValues is every credential value a source gives the run: the checked
+// credential, the environment and override values and the tokens the fake mints.
+func (src mcpCredentialSource) heldValues() []string {
+	held := append([]string{src.cred}, src.tokens...)
+	for _, m := range []map[string]string{src.env, src.over} {
+		for _, v := range m {
+			held = append(held, v)
+		}
+	}
+	return held
+}
+
 type mcpCredentialSource struct {
 	name   string
 	cred   string
@@ -327,12 +360,16 @@ func TestEveryCredentialSourceIsWithheldFromMCPOutput(t *testing.T) {
 				t.Fatalf("the server answered no data request; the source was not exercised:\n%s", out)
 			}
 			assertMCPNoCredential(t, "MCP output", out, src.cred)
+			assertMCPNoPiece(t, "MCP output", out, src.heldValues()...)
 			if strings.Contains(strings.ToLower(out), hex.EncodeToString([]byte(src.cred))) {
 				t.Errorf("MCP output carries the credential in hex:\n%s", out)
 			}
-			// every read path prints the kit's notice; a sync stores the echoed row, since the
-			// local store is not checked (synccpu), and its output is still checked above
-			if tool != "sync" && !strings.Contains(out, "[credkit: withheld") && !strings.Contains(out, "withheld by the credential check") {
+			// every read path prints the kit's notice or, for a tool result that is one JSON
+			// document, the "[redacted]" leaves the kit rewrote (contract section 4, the MCP
+			// tool-result exception; which one fires depends on the source's path); a sync
+			// stores the echoed row, since the local store is not checked (synccpu), and its
+			// output is still checked above
+			if tool != "sync" && !strings.Contains(out, "[credkit: withheld") && !strings.Contains(out, "withheld by the credential check") && !strings.Contains(out, "[redacted]") {
 				t.Errorf("the reflected answer was not withheld:\n%s", out)
 			}
 			_ = filepath.WalkDir(home, func(path string, d fs.DirEntry, err error) error {

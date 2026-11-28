@@ -72,6 +72,16 @@ func TestR6EveryCredentialSourceIsHeldEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	other := "unused-" + strings.Repeat("Ot4r", 10)
+	// The user part of a base URL's userinfo is held too. It is 8 or more
+	// characters here: a held value shorter than that counts as a whole token
+	// in any section-3 decoding (credential leak contract section 2(a)), and
+	// a 2-character user ("op") is found in the decoders' reading of
+	// ordinary JSON-RPC envelope text (the "message" key, a text piece that
+	// is a JSON object), so the tool-result frame and the kit's own
+	// replacement both matched and the session failed closed before this
+	// case could observe the password (the matcher does the same on
+	// origin/main; reported with #729).
+	const userinfoUser = "e2e-operator"
 
 	type source struct {
 		name   string
@@ -90,7 +100,7 @@ func TestR6EveryCredentialSourceIsHeldEndToEnd(t *testing.T) {
 			return fmt.Sprintf("api_token = %q\nbase_url = %q\n[headers]\nAuthorization = %q\n", other, base, s)
 		}},
 		{name: "config base_url userinfo", secret: "cbu-" + strings.Repeat("Cb9u", 15), config: func(s, _ string) string {
-			return fmt.Sprintf("api_token = %q\nbase_url = %q\n", other, "https://op:"+s+"@"+host+"/api/v1")
+			return fmt.Sprintf("api_token = %q\nbase_url = %q\n", other, "https://"+userinfoUser+":"+s+"@"+host+"/api/v1")
 		}},
 		{name: "stored credentials", secret: "sto-" + strings.Repeat("St2i", 15), env: []string{"ZAMMAD_URL=" + srv.URL, "ZAMMAD_API_TOKEN=" + other}},
 		{name: "short [headers] credential", secret: "k9Q2v", config: func(s, base string) string {
@@ -101,7 +111,7 @@ func TestR6EveryCredentialSourceIsHeldEndToEnd(t *testing.T) {
 	}
 	sources[0].env = append(sources[0].env, "ZAMMAD_API_TOKEN="+sources[0].secret)
 	sources[1].env = append(sources[1].env, "ZAMMAD_MCP_HTTP_TOKEN="+sources[1].secret)
-	sources[2].env = append(sources[2].env, "ZAMMAD_BASE_URL=https://op:"+sources[2].secret+"@"+host+"/api/v1")
+	sources[2].env = append(sources[2].env, "ZAMMAD_BASE_URL=https://"+userinfoUser+":"+sources[2].secret+"@"+host+"/api/v1")
 	sources[8].env = append(sources[8].env, "ZAMMAD_WEBHOOK_SECRET="+sources[8].secret)
 
 	for _, src := range sources {
@@ -163,6 +173,25 @@ func TestR6EveryCredentialSourceIsHeldEndToEnd(t *testing.T) {
 					t.Errorf("%s: the stub's echo did not reach the kit (test is vacuous): %.300s", what, out)
 				}
 			}
+			// checkMCP is check for MCP output. A tool result that is one JSON
+			// document has the leaf carrying a held value replaced by
+			// "[redacted]" instead of the whole result withheld (credential
+			// leak contract section 4, amended 2026-11-25), so either marker
+			// proves the echo reached the kit (mustReach). Output that may be
+			// redacted may keep no 8-character piece of a held value either
+			// (section 2(b)): "x uin-Ue5r[redacted]" carries no whole value
+			// and still leaks.
+			held := []string{src.secret, leak, other, userinfoUser}
+			checkMCP := func(what, out string, mustReach bool) {
+				t.Helper()
+				if strings.Contains(out, leak) {
+					t.Errorf("%s printed the credential: %.300s", what, out)
+				}
+				zammadAssertNoPiece(t, what, out, held...)
+				if mustReach && !strings.Contains(out, "withheld") && !strings.Contains(out, "[redacted]") {
+					t.Errorf("%s: the stub's echo did not reach the kit (test is vacuous): %.300s", what, out)
+				}
+			}
 			check("CLI 200 answer", cli(append([]string{"tickets", "get", "42", "--json", "--no-cache"}, cfgArgs...)...), true)
 			check("CLI 400 error", cli(append([]string{"tickets", "get", "400", "--json", "--no-cache"}, cfgArgs...)...), false)
 			// --config after the bad flag: cobra stops before parsing it.
@@ -197,13 +226,35 @@ func TestR6EveryCredentialSourceIsHeldEndToEnd(t *testing.T) {
 			tool := func(id int, name string, args map[string]any) string {
 				return call(id, "tools/call", map[string]any{"name": name, "arguments": args})
 			}
-			check("MCP in-process 200 answer", tool(2, "zammad_read", map[string]any{"endpoint_id": "tickets.get", "params": map[string]any{"id": 42}}), true)
-			check("MCP in-process 400 error", tool(3, "zammad_read", map[string]any{"endpoint_id": "tickets.get", "params": map[string]any{"id": 400}}), false)
-			check("MCP shell-out error", tool(4, "kb_get", map[string]any{"answer_id": "7"}), false)
+			checkMCP("MCP in-process 200 answer", tool(2, "zammad_read", map[string]any{"endpoint_id": "tickets.get", "params": map[string]any{"id": 42}}), true)
+			checkMCP("MCP in-process 400 error", tool(3, "zammad_read", map[string]any{"endpoint_id": "tickets.get", "params": map[string]any{"id": 400}}), false)
+			checkMCP("MCP shell-out error", tool(4, "kb_get", map[string]any{"answer_id": "7"}), false)
 			_ = stdin.Close()
 			_ = mcp.Wait()
-			check("MCP server stderr", stderr.String(), false)
+			checkMCP("MCP server stderr", stderr.String(), false)
 		})
+	}
+}
+
+// zammadAssertNoPiece fails when text carries any 8-character window of a
+// value (credential leak contract section 2(b): a piece of 8 or more
+// characters counts anywhere, so one surviving half is a leak on its own),
+// or a value shorter than 8 whole.
+func zammadAssertNoPiece(t *testing.T, where, text string, values ...string) {
+	t.Helper()
+	for _, v := range values {
+		if len(v) < 8 {
+			if v != "" && strings.Contains(text, v) {
+				t.Errorf("%s carries the credential %q: %.300s", where, v, text)
+			}
+			continue
+		}
+		for i := 0; i+8 <= len(v); i++ {
+			if w := v[i : i+8]; strings.Contains(text, w) {
+				t.Errorf("%s carries %q, an 8-character piece of a credential: %.300s", where, w, text)
+				break
+			}
+		}
 	}
 }
 

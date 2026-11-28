@@ -700,7 +700,13 @@ func holdsForm(text, f string) bool {
 // or both halves of one (a split the reader could rejoin).
 func assertNoEcho(t *testing.T, where, text string) {
 	t.Helper()
-	for _, s := range secrets() {
+	assertNoEchoOf(t, where, text, secrets()...)
+}
+
+// assertNoEchoOf is assertNoEcho for the given values only.
+func assertNoEchoOf(t *testing.T, where, text string, values ...string) {
+	t.Helper()
+	for _, s := range values {
 		for _, f := range echoForms(s) {
 			if holdsForm(text, f) {
 				t.Errorf("%s holds a credential as %q", where, f)
@@ -708,6 +714,37 @@ func assertNoEcho(t *testing.T, where, text string) {
 		}
 		if a, b := halves(s); strings.Contains(text, a) && strings.Contains(text, b) {
 			t.Errorf("%s holds both halves of %q", where, s)
+		}
+	}
+}
+
+// secretsExcept is secrets() without one value the process under test does
+// not hold by design.
+func secretsExcept(notHeld string) []string {
+	var kept []string
+	for _, s := range secrets() {
+		if s != notHeld {
+			kept = append(kept, s)
+		}
+	}
+	return kept
+}
+
+// assertNoPiece fails when text holds any 8-character piece of one of values,
+// raw or JSON-escaped (contract section 2(b): a piece of 8 or more characters
+// is a leak). A redacted MCP result can keep a piece beside the marker
+// ("zq7Wsink[redacted]"), which the whole-value scans of assertNoEcho miss.
+// Every window is checked, so ONE surviving half of a value of 16 or more
+// characters is caught on its own, not only both halves together. A value
+// shorter than 8 has no such piece; assertNoEcho covers it whole.
+func assertNoPiece(t *testing.T, where, text string, values ...string) {
+	t.Helper()
+	for _, s := range values {
+		for i := 0; i+8 <= len(s); i++ {
+			if holdsForm(text, s[i:i+8]) {
+				t.Errorf("%s holds the 8-character piece %q of a credential", where, s[i:i+8])
+				break
+			}
 		}
 	}
 }
@@ -1017,7 +1054,10 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 				t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
 			}
 			assertNoEcho(t, "MCP session", out)
-			if !strings.Contains(out, kitNotice("mcp")) {
+			assertNoPiece(t, "MCP session", out, secrets()...)
+			// Withheld whole or redacted leaf by leaf (contract section 4): either
+			// proves the echoes reached the kit.
+			if !strings.Contains(out, kitNotice("mcp")) && !strings.Contains(out, "[redacted]") {
 				t.Fatalf("the MCP session withheld nothing; the echoes did not reach it:\n%.2000s", out)
 			}
 			// The fake echoed the header it really received, so the scans above
@@ -1085,10 +1125,17 @@ func TestEchoTeachesTheHolderNothing(t *testing.T) {
 			// request carried: withheld whole, with the notice.
 			sv.setEchoOnly(nil)
 			out = echoes()
-			if !strings.Contains(out, kitNotice("stdout")) || !strings.Contains(out, kitNotice("mcp")) {
-				t.Errorf("the echo of the held token was not withheld with the kit's notice:\n%.2000s", out)
+			// The CLI withholds the unit whole; the MCP result is one JSON
+			// document, so the leaves that carried the token are redacted
+			// instead (contract section 4, the MCP tool-result exception).
+			if !strings.Contains(out, kitNotice("stdout")) {
+				t.Errorf("the echo of the held token was not withheld with the kit's stdout notice:\n%.2000s", out)
+			}
+			if !strings.Contains(out, "[redacted]") || strings.Contains(out, kitNotice("mcp")) {
+				t.Errorf("the MCP echo of the held token was not redacted leaf by leaf:\n%.2000s", out)
 			}
 			assertNoEcho(t, "output", out)
+			assertNoPiece(t, "output", out, secrets()...)
 			checkMode(t, sv, mode)
 		})
 	}
@@ -1210,21 +1257,49 @@ func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {
 				t.Fatalf("the MCP battery fetched nothing:\n%.2000s", out)
 			}
 			replies := mcpReplies(out)
+			tokenReply := ""
 			for i, call := range mcpWrites() {
 				id := len(mcpReads()) + i + 1
 				r := replies[id]
 				// The token call's arguments carry the client secret, which the kit
 				// holds from the call (contract section 1, MCP arguments), so its
-				// preview, repeating them, is withheld whole; the methods check
-				// below still proves it sent nothing.
-				if call["arguments"].(map[string]any)["endpoint_id"] == "oauth2.token" && strings.Contains(r, kitNotice("mcp")) {
-					continue
+				// preview, repeating them, has that leaf redacted (contract section
+				// 4, the MCP tool-result exception), or is withheld whole; the
+				// methods check below still proves it sent nothing.
+				if call["arguments"].(map[string]any)["endpoint_id"] == "oauth2.token" {
+					tokenReply = r
+					if strings.Contains(r, kitNotice("mcp")) {
+						continue
+					}
+					if !strings.Contains(r, "[redacted]") {
+						t.Errorf("%v: the preview repeats the client secret unredacted:\n%.1500s", call, r)
+					}
 				}
 				if !strings.Contains(r, "confirmation_required") && !strings.Contains(r, "Preview only: nothing was sent") {
 					t.Errorf("%v without confirm did not return a preview:\n%.1500s", call, r)
 				}
 			}
-			assertNoEcho(t, "MCP session", out)
+			if mode == credEnvToken && tokenReply != "" {
+				// With only the static token in the environment, nothing in the
+				// MCP process holds the client ID: ACTION1_CLIENT_ID is unset, and
+				// client_id is a declared identifier (Declarations.Identifiers,
+				// contract section 1: exempt when the ledger declares it), not one
+				// of Declarations.MCPArguments. The caller itself passed it as an
+				// oauth2.token argument, so that one redacted preview may repeat
+				// it. The COMPLETE session is scanned for every other secret, so a
+				// split across replies (half in the preview, half elsewhere) is
+				// still caught; every reply but that preview is scanned for the
+				// client ID too.
+				others := secretsExcept(bbClientID)
+				assertNoEchoOf(t, "MCP session", out, others...)
+				assertNoPiece(t, "MCP session", out, others...)
+				rest := strings.Replace(out, tokenReply, "", 1)
+				assertNoEchoOf(t, "MCP session outside the oauth2.token preview", rest, bbClientID)
+				assertNoPiece(t, "MCP session outside the oauth2.token preview", rest, bbClientID)
+			} else {
+				assertNoEcho(t, "MCP session", out)
+				assertNoPiece(t, "MCP session", out, secrets()...)
+			}
 			methods, _, _, _ := sv.counts()
 			if len(methods) == 0 {
 				t.Fatal("no request reached the fake")

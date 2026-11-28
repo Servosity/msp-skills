@@ -2636,9 +2636,12 @@ func TestMCPSessionHalfKeepsLaterResults(t *testing.T) {
 }
 
 // An MCP read of a record that splits a held credential across two adjacent
-// values (the fake's "split" member) is withheld whole by the credential kit
-// (contract 2(b): each half is a held piece of 8 or more characters), and
-// the same reads of records that repeat nothing keep their public fields.
+// values (the fake's "split" member) has those values redacted by the
+// credential kit (contract 2(b): each half is a held piece of 8 or more
+// characters; contract section 4: a JSON tool result has the carrying leaves
+// replaced by "[redacted]", or is withheld whole when redaction cannot
+// apply), and the same reads of records that repeat nothing keep their public
+// fields.
 func TestMCPSplitRecordKeepsItsPublicFields(t *testing.T) {
 	sv := echoServer(t)
 	e := newEnv(t, sv, credEnv)
@@ -2647,11 +2650,12 @@ func TestMCPSplitRecordKeepsItsPublicFields(t *testing.T) {
 	out := e.mcpCalls(t, reads)
 	replies := mcpReplies(out)
 	for id := 1; id <= len(reads); id++ {
-		if !strings.Contains(replies[id], kitNotice("mcp")) {
-			t.Errorf("read %d of a split credential was not withheld whole:\n%.2000s", id, out)
+		if !strings.Contains(replies[id], `[redacted]`) && !strings.Contains(replies[id], kitNotice("mcp")) {
+			t.Errorf("read %d of a split credential was neither redacted nor withheld whole:\n%.2000s", id, out)
 		}
 	}
 	assertNoEcho(t, "MCP split records", out)
+	assertNoPiece(t, "MCP split records", out, secrets()...)
 	sv.setQuiet(everyPath)
 	quiet := e.mcpCalls(t, reads)
 	for _, want := range []*regexp.Regexp{publicField("os", bbOS), publicField("site_id", bbSiteID), publicField("last_used_ip", bbLastUsedIP)} {
@@ -2716,4 +2720,21 @@ func TestOpenEndpointsCarryOnlyThePinnedKey(t *testing.T) {
 	}
 	assertNoEcho(t, "open endpoints", out)
 	checkOneAuthWay(t, sv)
+}
+
+// assertNoPiece fails when any 8-character piece of a held secret appears in
+// out: credential-leak contract section 2(b) withholds every piece of 8 or
+// more characters, so a result the kit released with "[redacted]" in it must
+// carry none (e.g. "zq7Wsink[redacted]" exposes "zq7Wsink"). This also catches
+// one surviving half of a secret, whenever that half is 8 or more characters.
+func assertNoPiece(t *testing.T, where, out string, secrets ...string) {
+	t.Helper()
+	for _, s := range secrets {
+		for i := 0; i+8 <= len(s); i++ {
+			if strings.Contains(out, s[i:i+8]) {
+				t.Errorf("%s holds the piece %q of a held credential", where, s[i:i+8])
+				break
+			}
+		}
+	}
 }

@@ -1680,6 +1680,33 @@ def write_choice_self_test() -> int:
         bad += not ok
         print(f"  [{'PASS' if ok else 'FAIL'}] a write named by no generic verb is found through the tools "
               f"manifest: {(item or {}).get('endpoint_id')} after {len(cli.queries)} search(es)")
+        many = catalog + [{"endpoint_id": f"w{i}", "method": "POST", "path": f"/v1/w{i}", "summary": "create"}
+                          for i in range(8)]
+        got = find_write_endpoints(_FakeSearchClient(many + many[:2]), "auvik_search", queries)
+        ok = len(got) == MAX_WRITE_CANDIDATES and len({(i["method"], i["path"]) for i in got}) == len(got)
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] write candidates are distinct and capped: "
+              f"{[i['endpoint_id'] for i in got]}")
+        mint = {"method": "POST", "path": "/oauth/token", "header_names": [], "body_head": "grant_type=x"}
+        data = {"method": "POST", "path": "/v1/w0", "header_names": [], "body_head": ""}
+        other = {"method": "POST", "path": "/unexpected-write", "header_names": [], "body_head": ""}
+        none = {"vendor_requests": [], "answer_head": "confirmation required"}
+        refusal = "request refused: Umbrella returns this new secret only once"
+        for first, second, want in (
+            (none, {"vendor_requests": [], "answer_head": refusal}, True),
+            (none, {"vendor_requests": [mint], "answer_head": refusal}, False),
+            (none, {"vendor_requests": [data], "answer_head": refusal}, False),
+            ({"vendor_requests": [other], "answer_head": "confirmation required"},
+             {"vendor_requests": [], "answer_head": refusal}, False),
+            ({"vendor_requests": [{**data, "body_head": '{"oauth_client":{"grant_type":"x"}}'}],
+              "answer_head": "confirmation required"}, {"vendor_requests": [], "answer_head": refusal}, False),
+            (none, {"vendor_requests": [], "answer_head": "confirmation required"}, False),
+            (none, {"vendor_requests": [], "answer_head": ""}, False),
+        ):
+            ok = deliberate_refusal(first, second) == want
+            bad += not ok
+            print(f"  [{'PASS' if ok else 'FAIL'}] deliberate refusal {want}: {second['answer_head']!r}, "
+                  f"{len(first['vendor_requests'])}+{len(second['vendor_requests'])} request(s)")
         ok = find_write_endpoint(_FakeSearchClient(catalog[:1]), "auvik_search", queries) is None
         bad += not ok
         print(f"  [{'PASS' if ok else 'FAIL'}] a catalog with no write endpoint still yields none")
@@ -2073,17 +2100,42 @@ def write_queries(skill: Path) -> list[str]:
     return out
 
 
-def find_write_endpoint(cli, search: str, queries: list[str]) -> dict | None:
-    """The first POST, PUT, PATCH or DELETE result for the first query that
-    has one, preferring a path with no placeholders."""
+MAX_WRITE_CANDIDATES = 5
+
+
+def find_write_endpoints(cli, search: str, queries: list[str], limit: int = MAX_WRITE_CANDIDATES) -> list[dict]:
+    """Up to `limit` distinct POST, PUT, PATCH or DELETE results, in query
+    order, each query's preferring a path with no placeholders."""
+    out, seen = [], set()
     for q in queries:
         writes = [i for i in search_endpoints(cli, search, q)
                   if str(i.get("method", "")).upper() in WRITE_METHODS]
-        if writes:
-            writes.sort(key=lambda i: ("{" in (i.get("path") or ""),
-                                       WRITE_METHODS.index(str(i["method"]).upper())))
-            return writes[0]
-    return None
+        writes.sort(key=lambda i: ("{" in (i.get("path") or ""),
+                                   WRITE_METHODS.index(str(i["method"]).upper())))
+        for i in writes:
+            key = (str(i["method"]).upper(), i.get("path"))
+            if key not in seen:
+                seen.add(key)
+                out.append(i)
+            if len(out) >= limit:
+                return out
+    return out
+
+
+def find_write_endpoint(cli, search: str, queries: list[str]) -> dict | None:
+    found = find_write_endpoints(cli, search, queries, limit=1)
+    return found[0] if found else None
+
+
+def deliberate_refusal(first: dict, second: dict) -> bool:
+    """The connector refused the confirmed call itself ("request refused: ...",
+    e.g. cisco-umbrella's one-time-secret POST /admin/v2/apiKeys) and neither
+    call reached the vendor at all, a token mint included: a request to any
+    other path, or anything a mint check would let pass, keeps the verdict.
+    Safe, but it proves nothing about the confirm path, so feature 4 drives the
+    next write endpoint."""
+    return (not first["vendor_requests"] and not second["vendor_requests"]
+            and "request refused" in (second.get("answer_head") or ""))
 
 
 def looks_like_preview(text: str) -> bool:
@@ -2106,29 +2158,37 @@ def f4_write_gating(ctx: Ctx) -> dict:
             if not search:
                 return verdict(ERROR, f"{execute} is listed but there is no "
                                       f"{execute[:-len('_execute')]}_search tool to find a write endpoint")
-            item = find_write_endpoint(cli, search, write_queries(ctx.skill))
-            write_json(d / "chosen-endpoint.json", item)
-            if not item:
+            items = find_write_endpoints(cli, search, write_queries(ctx.skill))
+            write_json(d / "chosen-endpoint.json", items[0] if items else None)
+            if not items:
                 return verdict(ERROR, f"{search} found no POST/PUT/PATCH/DELETE endpoint to drive")
-            method, path = str(item["method"]).upper(), item.get("path") or "?"
-            args = {"endpoint_id": item.get("endpoint_id") or item.get("id"), "params": endpoint_params(item)}
-            first = call_observed(ctx, cli, execute, args)
-            write_json(d / "call-without-confirm.json", first)
-            sent = endpoint_requests(first["vendor_requests"], method, path)
-            if sent:
-                return verdict(FAIL, f"{execute} sent {method} {path} to the vendor at once, with no confirm "
-                                     "and no preview")
-            if not looks_like_preview(first["answer_head"]):
-                return verdict(ERROR, f"{execute} neither sent nor previewed {method} {path}: "
-                                      f"{tail(first['answer_head'], 1)}")
-            second = call_observed(ctx, cli, execute, {**args, "confirm": True})
-            write_json(d / "call-with-confirm.json", second)
+            refused = []
+            for n, item in enumerate(items):
+                sfx = "" if n == 0 else f"-{n + 1}"
+                method, path = str(item["method"]).upper(), item.get("path") or "?"
+                args = {"endpoint_id": item.get("endpoint_id") or item.get("id"), "params": endpoint_params(item)}
+                first = call_observed(ctx, cli, execute, args)
+                write_json(d / f"call-without-confirm{sfx}.json", first)
+                if endpoint_requests(first["vendor_requests"], method, path):
+                    return verdict(FAIL, f"{execute} sent {method} {path} to the vendor at once, with no confirm "
+                                         "and no preview")
+                if not looks_like_preview(first["answer_head"]):
+                    return verdict(ERROR, f"{execute} neither sent nor previewed {method} {path}: "
+                                          f"{tail(first['answer_head'], 1)}")
+                second = call_observed(ctx, cli, execute, {**args, "confirm": True})
+                write_json(d / f"call-with-confirm{sfx}.json", second)
+                if endpoint_requests(second["vendor_requests"], method, path):
+                    note = f" (refused by the connector, nothing sent: {', '.join(refused)})" if refused else ""
+                    return verdict(PASS, f"{execute} previewed {method} {path} without confirm (nothing sent); "
+                                         f"confirm=true sent it{note}")
+                if not deliberate_refusal(first, second):
+                    return verdict(FAIL, f"{execute} previewed {method} {path}, but confirm=true did not send it "
+                                         f"either: {tail(second['answer_head'], 1)}")
+                refused.append(f"{method} {path}")
     except ServerGone as e:
         return verdict(FAIL, str(e))
-    if not endpoint_requests(second["vendor_requests"], method, path):
-        return verdict(FAIL, f"{execute} previewed {method} {path}, but confirm=true did not send it either: "
-                             f"{tail(second['answer_head'], 1)}")
-    return verdict(PASS, f"{execute} previewed {method} {path} without confirm (nothing sent); confirm=true sent it")
+    return verdict(FAIL, f"{execute} refused every write endpoint it previewed with confirm=true, so the confirm "
+                         f"path was never exercised: {', '.join(refused)}")
 
 
 # --------------------------------------------------------------------------- #

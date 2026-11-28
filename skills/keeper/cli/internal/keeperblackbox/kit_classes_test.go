@@ -131,13 +131,28 @@ func TestClass_partial_credential_leak(t *testing.T) {
 	t.Parallel()
 	const headerKey = "Nb5Ky2H" + "w8Jd4Fs7Gc3Tr9Mv6Qx"
 	piece := headerKey[6:14]
-	check := func(t *testing.T, sv *server, where, control, withheld string) {
+	check := func(t *testing.T, sv *server, where, control, withheld string, held ...string) {
 		t.Helper()
 		if !strings.Contains(control, "Rq2Wd9Lk6Bz3") || strings.Contains(control, bbWithheld) {
 			t.Errorf("%s: the control value was not printed:\n%.1200s", where, control)
 		}
 		if strings.Contains(withheld, piece) {
 			t.Errorf("%s output carries the 8-character piece %q:\n%.1200s", where, piece, withheld)
+		}
+		if where == "MCP" {
+			// An MCP tool result that is one JSON document has the leaf that
+			// carries the piece replaced by "[redacted]" instead of being
+			// withheld whole (credential leak contract section 4, amended
+			// 2026-11-25). Which rule fires depends on the result's shape, so
+			// either is accepted; no 8-character piece (so no lone half) of
+			// any credential the process holds may appear either way.
+			for _, v := range append([]string{headerKey}, held...) {
+				noPiece(t, where+" output", withheld, v)
+			}
+			if !strings.Contains(withheld, bbWithheld) && !strings.Contains(withheld, `[redacted]`) {
+				t.Errorf("%s output neither withheld nor redacted the piece:\n%.1200s", where, withheld)
+			}
+			return
 		}
 		if !strings.Contains(withheld, bbWithheld) {
 			t.Errorf("%s output lacks the kit's notice:\n%.1200s", where, withheld)
@@ -171,7 +186,7 @@ func TestClass_partial_credential_leak(t *testing.T) {
 		sv.show(piece)
 		cli, mcp := readCompanies(t, e)
 		check(t, sv, "CLI", ctlCLI, cli)
-		check(t, sv, "MCP", ctlMCP, mcp)
+		check(t, sv, "MCP", ctlMCP, mcp, "Ls8Pn3Vc6Xt1Qz7Hb4Kj")
 	})
 }
 
