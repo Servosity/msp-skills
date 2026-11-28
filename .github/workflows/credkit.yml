@@ -9,7 +9,7 @@
 # connector vendors it (and then guard 11 and that connector's own matrix row
 # cover the copy), so it is not release machinery: a change to the kit must
 # not rebuild all 65 connectors, and a change to a connector must not wait on
-# the kit's ten-minute race suite.
+# the kit's contract suites.
 name: credkit
 
 on:
@@ -38,7 +38,7 @@ permissions:
 jobs:
   credkit:
     runs-on: ubuntu-latest
-    timeout-minutes: 210
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,20 +72,29 @@ jobs:
           go-version-file: tools/maintainer/credkit/go.mod
           cache-dependency-path: tools/maintainer/credkit/go.sum
 
-      # The race suite takes about seven minutes on a fast machine, more on a
-      # shared runner; go test's own ten-minute default is not a kit limit.
-      # The rich-text budget makes the hostile 12-layer hex stream test read much
-      # further before it withholds (about 4 minutes, roughly 46 under race), so
-      # the limit leaves room; every test still runs. With the constant-text table
-      # tests the whole suite took 117 and 121 minutes on a shared runner
-      # (2026-11-07; 121 hit the old 120m limit), so it gets 180.
-      - name: Contract tests (race detector)
+      # The race detector finds unsynchronized memory access, so it earns its
+      # cost on tests that run goroutines. It slows the single-threaded matcher
+      # tests about tenfold: under race the whole suite took 69 minutes on a
+      # fast machine and 117 to 121 on a shared runner (2026-11-07), half of it
+      # one test (TestKit3rvStreamKeepsOpenRuns, 35 minutes). So the race run
+      # skips the CPU-bound tests below, which the credkit-full job runs
+      # without race, and keeps every concurrency test (memo, file appends,
+      # child hand-off, stdio stalls) plus one heavy decode test whose hook
+      # runs on the worker pool (TestFix1BSharedTailIsWhatTheAttemptDecodes).
+      # Timings: 2026-11-27, go test -race -json, about 7 minutes left locally.
+      - name: Contract tests (race detector, concurrency subset)
         if: steps.kit.outputs.changed == 'true'
         working-directory: tools/maintainer/credkit
-        run: go test -race -count=1 -timeout 180m ./...
+        run: >-
+          go test -race -count=1 -timeout 60m
+          -skip '^(TestKit3rvStreamKeepsOpenRuns|TestKitcomboTableEqualsCold|TestOrdinaryCorpusIsClean|TestKitsafeOrdinaryWorkIsLinear|TestKit15FleetRequestsAreWhole|TestKitsafeModalWalkReadsWhatWholeReadingsRead|TestKit15FleetConfigsArePrecise|TestFix1BOrdinarySQLNeverExhausts|TestKit15R1MixedBinaryPercent|TestKitsafeOrdinaryUnitsCheckClean|TestKitJSMPositionalProperty|TestFix1BReportedUnitsAreClean|TestKit13ConfigBluntRuleQuietOnOrdinaryFiles|TestKitsafeTableDocsReadWhatWholeReadingsRead)$'
+          ./...
 
       # These tests read connector source and testdata (the fleet checks and the
       # ordinary corpus), so a connector PR gives them new input: every trigger.
+      # Unconditional, though credkit-full also runs them when the kit changed:
+      # each job detects the change on its own, and a race job that fails open
+      # beside a credkit-full that sees no change would otherwise run them nowhere.
       - name: Fleet checks over connector code (every trigger)
         working-directory: tools/maintainer/credkit
         run: go test -count=1 -timeout 20m -run '^(TestKit15Fleet|TestOrdinaryCorpusIsClean$|TestKit13ConfigBluntRuleQuietOnOrdinaryFiles$)' ./...
@@ -111,6 +120,50 @@ jobs:
             go get "github.com/mark3labs/mcp-go/server@$v"
             go vet ./...
           done
+
+  # Every contract test without the race detector, beside the race job so
+  # the two run at once: the CPU-bound tests the race run skips run here, at
+  # full speed (the whole suite took about 8 minutes on a fast machine).
+  credkit-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Did the kit itself change
+        id: kit
+        shell: bash
+        # A connector PR also triggers this workflow (its go.mod sets the mcp-go
+        # versions the vet steps build against), but its vendored kit is the same
+        # bytes as tools/maintainer/credkit (vendor_credkit.py --check, guard 11),
+        # so rerunning the long contract suites there tests nothing new. They run
+        # when the kit, its vendoring tool or this workflow changes, on the weekly
+        # run, by hand, and whenever this check cannot tell (fails open).
+        run: |
+          changed() { echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          case "${{ github.event_name }}" in
+            pull_request) base="${{ github.event.pull_request.base.sha }}"; head="${{ github.event.pull_request.head.sha }}" ;;
+            push) base="${{ github.event.before }}"; head="${{ github.sha }}" ;;
+            *) changed ;;
+          esac
+          git fetch -q --depth=1 origin "$base" "$head" || changed
+          # A path-scoped --quiet diff: exit 0 means no change, 1 a change, anything else unknown (runs the suites).
+          # No filename parsing, so quoted or renamed paths cannot hide a change.
+          rc=0; git diff --quiet --no-renames "$base" "$head" -- tools/maintainer/credkit tools/maintainer/vendor_credkit.py .github/workflows/credkit.yml || rc=$?
+          [ "$rc" = 0 ] || changed
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/maintainer/credkit/go.mod
+          cache-dependency-path: tools/maintainer/credkit/go.sum
+
+      - name: Contract tests (linux/amd64, every test)
+        if: steps.kit.outputs.changed == 'true'
+        working-directory: tools/maintainer/credkit
+        run: go test -count=1 -timeout 45m ./...
 
   # The kit's contract tests run natively on Windows, where the output layer
   # is SetStdHandle and a handle takeover rather than dup2. Blocking: a
