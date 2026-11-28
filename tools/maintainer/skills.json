@@ -375,8 +375,8 @@
       "has_video": true,
       "cli_hash": "sha256:131de88e132d579241ad720c78160fde8ae47c1a203bea31462a0a0c4d670716",
       "template_version": 3,
-      "version": "0.1.9",
-      "cli_hash_at_release": "sha256:e1ca6164fcfa97c179d6135199f651c299da5efd4f8630a27cc5341fc3cc38c5",
+      "version": "0.1.10",
+      "cli_hash_at_release": "sha256:eec4c04498f91fb709ef52ce4843422c4f50b660dd2e804ff601d7c85d174539",
       "live_verified": {
         "status": "awaiting",
         "date": null,
