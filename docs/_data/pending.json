@@ -98,11 +98,11 @@
     "released_hash": "sha256:53f82181248799056d81ede65890116b3fe2e10a0668f1b3dae1230ff1dfe213"
   },
   "bitdefender": {
-    "state": "binary-pending",
-    "version": "0.1.9",
+    "state": "version-pending",
+    "version": "0.1.10",
     "latest_tag": "bitdefender-v0.1.9",
     "current_hash": "sha256:eec4c04498f91fb709ef52ce4843422c4f50b660dd2e804ff601d7c85d174539",
-    "released_hash": "sha256:e1ca6164fcfa97c179d6135199f651c299da5efd4f8630a27cc5341fc3cc38c5"
+    "released_hash": "sha256:eec4c04498f91fb709ef52ce4843422c4f50b660dd2e804ff601d7c85d174539"
   },
   "blackpoint": {
     "state": "binary-pending",
