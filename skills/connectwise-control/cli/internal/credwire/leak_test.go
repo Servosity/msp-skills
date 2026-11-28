@@ -226,13 +226,14 @@ func requireAbsent(t *testing.T, where, text, secret string) {
 	}
 }
 
-// Codex r2 input 2: Cobra repeats an unknown command, and this one is the hex
-// of the record user=ops, where ops is the configured user name: a short
-// value (contract 2(b)) standing as a whole token once the hex is decoded
-// (contract 3). It is withheld.
+// Codex r2 input 2: Cobra repeats an unknown command, and the review's was the
+// hex of the record user=ops, where ops is the configured user name. A value
+// under 8 characters is no longer compared in a run decoder's view (contract
+// 2(a), section 6 item 11), so that hex now prints; the record itself, with ops
+// standing as a whole token, is still withheld.
 func TestR2HexRecordOfShortUserNameWithheld(t *testing.T) {
 	cli, _ := binaries(t)
-	const arg = "757365723d6f7073" // hex of "user=ops"
+	const arg = "user=ops"
 	s := newSandbox(t)
 	res := run(t, cli, s.env("CONNECTWISE_CONTROL_USERNAME=ops"), arg)
 	if res.code == 0 {
@@ -240,21 +241,31 @@ func TestR2HexRecordOfShortUserNameWithheld(t *testing.T) {
 	}
 	requireAbsent(t, "stdout", res.stdout, arg)
 	requireAbsent(t, "stderr", res.stderr, arg)
+	// Control: with another user name configured, the same error prints it.
+	if res := run(t, cli, newSandbox(t).env("CONNECTWISE_CONTROL_USERNAME=zzq"), arg); !strings.Contains(res.stderr, arg) {
+		t.Fatalf("the control error did not repeat %q, so this run proves nothing: stderr=%q", arg, res.stderr)
+	}
 }
 
-// Codex r2 input 4: the unknown command is the GBK bytes of the configured
-// non-ASCII password, in hex (contract 3: hex, then a legacy charset). It is
-// withheld.
+// Codex r2 input 4: the review's unknown command was the GBK bytes of the
+// configured non-ASCII password, in hex (hex, then a legacy charset). A value
+// under 8 characters is no longer compared in a run or stream decoder's view
+// (contract 2(a), section 6 item 11), so that hex now prints; the password
+// itself, as a whole token, is still withheld.
 func TestR2GBKHexOfNonASCIIPasswordWithheld(t *testing.T) {
 	cli, _ := binaries(t)
-	const arg = "c3dcc2eb" // hex of the GBK encoding of the password below
+	const arg = "\u5bc6\u7801" // the configured password
 	s := newSandbox(t)
-	res := run(t, cli, s.env("CONNECTWISE_CONTROL_PASSWORD=\u5bc6\u7801"), arg)
+	res := run(t, cli, s.env("CONNECTWISE_CONTROL_PASSWORD="+arg), arg)
 	if res.code == 0 {
 		t.Fatalf("an unknown command succeeded: stdout=%q stderr=%q", res.stdout, res.stderr)
 	}
 	requireAbsent(t, "stdout", res.stdout, arg)
 	requireAbsent(t, "stderr", res.stderr, arg)
+	// Control: with another password configured, the same error prints it.
+	if res := run(t, cli, newSandbox(t).env("CONNECTWISE_CONTROL_PASSWORD=zzq"), arg); !strings.Contains(res.stderr, arg) {
+		t.Fatalf("the control error did not repeat %q, so this run proves nothing: stderr=%q", arg, res.stderr)
+	}
 }
 
 // Startup ordering: a credential inside a malformed config file is held

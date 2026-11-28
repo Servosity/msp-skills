@@ -315,13 +315,15 @@ func TestP1PairIdentityInAnyCaseNeverPrints(t *testing.T) {
 
 // TestP1ShortValueInsideOtherTextNeverPrints is print-review P1 input 2
 // (short-held-value-inside-other-text): a two-character password K7 spelled as
-// the hex escapes 0x4b0x37 inside a monitor's name. A run decoder's output
-// counts a short value anywhere in it. (The other input, Q inside the word
-// xQy, is outside contract 2(a), where a value under 8 counts only as a whole
-// token: .review/followups.md.)
+// the hex escapes 0x4b0x37 inside a monitor's name. A value under 8 characters
+// is no longer compared in a run decoder's view (contract 2(a), section 6 item
+// 11), so that spelling now prints; the password as a whole token inside the
+// name still never prints. (The other input, Q inside the word xQy, is outside
+// contract 2(a), where a value under 8 counts only as a whole token:
+// .review/followups.md.)
 func TestP1ShortValueInsideOtherTextNeverPrints(t *testing.T) {
 	cliBin, _ := binaries(t)
-	const name = "x0x4b0x37y"
+	const name = "x K7 y"
 	out, _ := monitorGet(t, cliBin, `"auth_password":"K7","pronounceable_name":"`+name+`"`, "--plain", "--select", "attributes.pronounceable_name")
 	assertAbsent(t, "monitors get --select", out, name)
 	// Control: the same name beside another password prints.
@@ -333,15 +335,18 @@ func TestP1ShortValueInsideOtherTextNeverPrints(t *testing.T) {
 
 // TestP1NestedHeaderlessDeflateNeverPrints is print-review P1 input 3
 // (secret-in-headerless-compressed-stream): a monitor's name that base64- and
-// raw-DEFLATE-decodes to a 12-byte text which decodes the same way again to the
-// held password.
+// raw-DEFLATE-decodes to a text which decodes the same way again to the held
+// password. The review's 5-character password, hello, is no longer compared in
+// a stream decoder's view (contract 2(a), section 6 item 11), so the same nesting
+// is driven with a 10-character password, which keeps full coverage.
 func TestP1NestedHeaderlessDeflateNeverPrints(t *testing.T) {
 	cliBin, _ := binaries(t)
-	const name = "AQwA8/95MGpOeWNrSEFBPT0="
-	out, _ := monitorGet(t, cliBin, `"auth_password":"hello","pronounceable_name":"`+name+`"`, "--plain", "--select", "attributes.pronounceable_name")
+	// base64(raw deflate(base64(raw deflate("hellohello")))), no zlib or gzip header.
+	const name = "qszO8qtMzvZwNXF0dHR00dcvt7UFBAAA//8="
+	out, _ := monitorGet(t, cliBin, `"auth_password":"hellohello","pronounceable_name":"`+name+`"`, "--plain", "--select", "attributes.pronounceable_name")
 	assertAbsent(t, "monitors get --select", out, name)
 	// Control: the same name beside another password prints.
-	out, _ = monitorGet(t, cliBin, `"auth_password":"other","pronounceable_name":"`+name+`"`, "--plain", "--select", "attributes.pronounceable_name")
+	out, _ = monitorGet(t, cliBin, `"auth_password":"otherother","pronounceable_name":"`+name+`"`, "--plain", "--select", "attributes.pronounceable_name")
 	if !strings.Contains(out, name) {
 		t.Fatalf("the control name did not print, so this run proves nothing:\n%s", out)
 	}

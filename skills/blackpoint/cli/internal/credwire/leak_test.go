@@ -284,18 +284,36 @@ func TestMalformedConfigHeldBeforeAnythingPrints(t *testing.T) {
 
 // TestCollidingMalformedConfigRefusesAndSaysSo: a malformed file's short value that
 // occurs in public text stops the start with a named reason, not a leak and not a
-// silent exit. The review's exact input has a one-letter comment.
+// silent exit. The review's exact input has a one-letter comment, "#c", which occurred
+// in public text only through run and stream decoder noise; a value under 8 characters
+// is no longer compared there (contract 2(a), section 6 item 11), so that input now
+// starts, and its echo of the secret is withheld aloud. A comment word that is still a
+// whole token of public text ("c", as in the header name C-Ext) refuses the start.
 func TestCollidingMalformedConfigRefusesAndSaysSo(t *testing.T) {
 	cliBin, _ := binaries(t)
-	home := t.TempDir()
 	const secret = "bp_live_glued0101"
-	writeFile(t, filepath.Join(home, "config", "config.toml"), "api_token = \""+secret+"\"#c\n")
-	cmd := exec.Command(cliBin, "--timeout", secret, "version")
-	cmd.Env = closedEnv(home)
-	out, _ := cmd.CombinedOutput()
-	assertAbsent(t, "refused start", string(out), secret)
-	if cmd.ProcessState.ExitCode() != credkit.ExitRefused || !strings.Contains(string(out), "refusing to start") {
-		t.Errorf("exit %d, want a named refusal:\n%s", cmd.ProcessState.ExitCode(), out)
+	for _, tc := range []struct {
+		name, comment string
+		refused       bool
+	}{
+		{"review input", "#c", false},
+		{"public-text word", "#c c", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			writeFile(t, filepath.Join(home, "config", "config.toml"), "api_token = \""+secret+"\""+tc.comment+"\n")
+			cmd := exec.Command(cliBin, "--timeout", secret, "version")
+			cmd.Env = closedEnv(home)
+			out, _ := cmd.CombinedOutput()
+			assertAbsent(t, "refused start", string(out), secret)
+			code := cmd.ProcessState.ExitCode()
+			if tc.refused && (code != credkit.ExitRefused || !strings.Contains(string(out), "refusing to start")) {
+				t.Errorf("exit %d, want a named refusal:\n%s", code, out)
+			}
+			if !tc.refused && (code == 0 || !strings.Contains(string(out), "credkit: withheld")) {
+				t.Errorf("exit %d, want the echo withheld aloud:\n%s", code, out)
+			}
+		})
 	}
 }
 

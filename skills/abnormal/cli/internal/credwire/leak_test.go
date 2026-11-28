@@ -287,42 +287,28 @@ func TestExportSplitAcrossRecordsNeverLandsWhole(t *testing.T) {
 	assertAbsent(t, "export output", out, token, first, second)
 }
 
-// TestShortTokenDoubleBase64NeverPrinted: a short token is held whole, and a
-// vendor that reflects it base64-encoded twice is read through both layers. The
-// review's input, K7, occurs as a whole token in this program's own text, so the
-// kit refuses the start and says so: nothing is sent and nothing prints. q7Z
-// does not, so it runs the whole path.
+// TestShortTokenDoubleBase64NeverPrinted: a short token is held whole. A value
+// under 8 characters is no longer compared in run or stream decoder views, so a
+// vendor that reflects it base64-encoded (twice) no longer withholds the output,
+// and the review's input, K7, which collided with this program's own text only
+// through such readings, no longer refuses the start (contract 2(a), section 6
+// item 11). What holds for both: the start proceeds, the token goes out, and a
+// reflection of the token itself, as a whole token, never prints or lands in a file.
 func TestShortTokenDoubleBase64NeverPrinted(t *testing.T) {
 	cliBin, mcpBin := binaries(t)
-	for _, c := range []struct {
-		short   string
-		refused bool
-	}{{"K7", true}, {"q7Z", false}} {
-		t.Run(c.short, func(t *testing.T) {
-			once := base64.StdEncoding.EncodeToString([]byte(c.short))
-			twice := base64.StdEncoding.EncodeToString([]byte(once))
+	for _, short := range []string{"K7", "q7Z"} {
+		t.Run(short, func(t *testing.T) {
 			v := startVendor(t, func(w http.ResponseWriter, _ *http.Request) {
-				fmt.Fprintf(w, `{"threats":[{"threatId":"t-short","subject":%q}],"pageNumber":1}`, twice)
+				fmt.Fprintf(w, `{"threats":[{"threatId":"t-short","subject":%q}],"pageNumber":1}`, short)
 			})
 			home := t.TempDir()
-			env := closedEnv(home, v.env(c.short)...)
-			if c.refused {
-				out, code := runCode(t, cliBin, env, "threats", "retrieve", "--json", "--no-learn")
-				if code != credkit.ExitRefused || !strings.Contains(out, "refusing to start") {
-					t.Errorf("exit %d, want the named refusal:\n%s", code, out)
-				}
-				assertAbsent(t, "refused start", out, twice, once)
-				if n := v.hits.Load(); n != 0 {
-					t.Errorf("a refused start sent %d requests", n)
-				}
-				return
-			}
-			assertAbsent(t, "threats retrieve", run(t, cliBin, env, "threats", "retrieve", "--json", "--no-learn"), twice, once)
-			assertAbsent(t, "MCP read", mcpCall(t, mcpBin, env, nil, `{"name":"abnormal_read","arguments":{"endpoint_id":"threats.retrieve"}}`), twice, once)
-			if got, _ := v.auth.Load().(string); got != "Bearer "+c.short {
+			env := closedEnv(home, v.env(short)...)
+			assertAbsent(t, "threats retrieve", run(t, cliBin, env, "threats", "retrieve", "--json", "--no-learn"), short)
+			assertAbsent(t, "MCP read", mcpCall(t, mcpBin, env, nil, `{"name":"abnormal_read","arguments":{"endpoint_id":"threats.retrieve"}}`), short)
+			if got, _ := v.auth.Load().(string); got != "Bearer "+short {
 				t.Fatalf("the vendor received Authorization %q, so the token never went out", got)
 			}
-			assertNoFileCarries(t, home, nil, twice, once)
+			assertNoFileCarries(t, home, nil, short)
 		})
 	}
 }

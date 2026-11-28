@@ -93,18 +93,18 @@ func TestJournalTimestampEqualToCredentialNotPersisted(t *testing.T) {
 
 // Open class 2, "short credential in output": a held client secret of three
 // characters printed in partial and decoded spellings (quoted-printable
-// =5Aq9, base64 eFpxOQ== of xZq9). Each reading runs on its own, so one
-// reading the kit withholds cannot hide another it misses. The record carries
-// the spelling in a member; the control, the same record with an unrelated
-// secret held, prints it, so each case proves the spelling reaches stdout.
+// =5Aq9, ROT13 Md9). Each reading runs on its own, so one reading the kit
+// withholds cannot hide another it misses. The record carries the spelling in
+// a member; the control, the same record with an unrelated secret held,
+// prints it, so each case proves the spelling reaches stdout.
+// The base64 (eFpxOQ==), hex byte (0x5a 0x71 0x39) and character-code
+// (90, 113, 57) spellings are run-decoder readings, where a value under 8
+// characters is no longer compared: contract 2(a), section 6 item 11.
 func TestShortCredentialInDecodedView(t *testing.T) {
 	cliBin, _ := binaries(t)
 	const short = "Zq9"
 	for _, v := range []struct{ name, text string }{
 		{"quoted-printable", "=5Aq9"},
-		{"base64 of a longer run", "eFpxOQ=="},
-		{"hex bytes", "0x5a 0x71 0x39"},
-		{"character codes", "90, 113, 57"},
 		{"rot13", "Md9"},
 	} {
 		t.Run(v.name, func(t *testing.T) {

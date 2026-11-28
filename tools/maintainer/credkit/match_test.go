@@ -54,15 +54,16 @@ func TestContract2aWholeValue(t *testing.T) {
 
 func TestContract2aShortValueWholeTokenOnly(t *testing.T) {
 	holding(t, "abc")
-	// "fabc": UTF-8 read from the offset of the a is "abc", whole (kit5rv).
-	for _, u := range []string{"abc", "the abc token", `{"k":"abc"}`, "abc\n", "key=abc;", "fabc"} {
+	// "fabc" is no whole token since the 2026-11-27 amendment of 2(a): a
+	// charset reading's start is no left boundary for a short value.
+	for _, u := range []string{"abc", "the abc token", `{"k":"abc"}`, "abc\n", "key=abc;"} {
 		if !leaks(u) {
 			t.Errorf("short value as a whole token: %q not withheld", u)
 		}
 	}
 	// The over-withholding guard: a 3-character credential inside a longer
 	// word, a letter or digit after it, is not withheld.
-	for _, u := range []string{"xabcx", "abcdef", "abc1", "Fabcd and labcx"} {
+	for _, u := range []string{"xabcx", "abcdef", "abc1", "Fabcd and labcx", "fabc"} {
 		if leaks(u) {
 			t.Errorf("short value inside a longer word: %q withheld", u)
 		}
@@ -339,11 +340,12 @@ func TestContract1UnknownHeldSetWithholdsAll(t *testing.T) {
 }
 
 func TestCleanOutputsStayClean(t *testing.T) {
-	// The short value is a 4-digit PIN, the realistic short shape. A held
-	// 3-letter value withholds the help text below since kit5rv: a decoded
-	// view's ROT13 reads "nop" as "abc" at a reading's start, which the
-	// left edge (match.go tokenAt) now counts, as contract 3 requires.
-	holding(t, cred, "4711", "0123456789012")
+	// The short values are a 4-digit PIN, the realistic short shape, and a
+	// 3-letter value. From kit5rv to the 2026-11-27 amendment of 2(a) a held
+	// 3-letter value withheld the help text below: a decoded view's ROT13
+	// read "nop" as "abc" at a reading's start. A short value now needs a
+	// left boundary and is compared in raw and substitution views only.
+	holding(t, cred, "abc", "4711", "0123456789012")
 	for _, u := range []string{
 		`{"tickets":[{"id":12,"title":"Printer offline","state":"open","owner":"j.doe@example.com"}]}`,
 		"ID  TITLE             STATE\n12  Printer offline   open\n",

@@ -345,7 +345,13 @@ func TestEveryCredentialSourceIsWithheldEndToEnd(t *testing.T) {
 			if s.reached() == before {
 				t.Fatalf("the MCP server never reached the stub:\n%s", res)
 			}
-			if e2eCarries(res, s.echo) || !strings.Contains(res, `"id":2`) {
+			carried := e2eCarries(res, s.echo)
+			if len(s.echo) < 8 {
+				// A value under 8 characters is not compared in its base64 or hex spelling, which an MCP
+				// result redacted leaf by leaf now shows (contract 2(a), section 6 item 11); its raw form is.
+				carried = strings.Contains(res, s.echo)
+			}
+			if carried || !strings.Contains(res, `"id":2`) {
 				t.Fatalf("MCP output carried the credential, or no tool result:\n%s", res)
 			}
 		})

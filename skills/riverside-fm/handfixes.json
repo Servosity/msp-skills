@@ -1210,6 +1210,46 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "chrome-proxy-connect-judged",
+   "class": "credential-outbound",
+   "summary": "chromeProxyCONNECT sends the CONNECT it builds itself through credkit.ProxyWrite, which judges and writes it in one step.",
+   "why": "The chrome transport dials its own proxy tunnel (h1.Proxy is nil), so the kit's proxy check (credkit transport.go proxyUnit) never judged that CONNECT: exchange-online sent a held token as the proxy password to a plain-http proxy (Codex review of the 2026-11-27 short-value kit PR). ProxyWrite applies the transport's rule: the proxy's own credentials go only to an https proxy, no other held value goes to a proxy.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: a transport that dials its own proxy tunnel should hand the CONNECT to the kit's proxy check.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/chrome.go",
+     "contains": "credkit.ProxyWrite(conn, proxyURL, unit.Bytes())",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "loose-config-skip-tls-verify",
+   "class": "credential-sent-to-another-host",
+   "summary": "A config file other users can change cannot set skip_tls_verify; it is cleared with ca_cert and tls_server_name",
+   "why": "Press config.go dropUntrustedTLSSettings cleared only ca_cert and tls_server_name from a group or world writable config, so a file holding just skip_tls_verify = true, with the operator's normal RIVERSIDE_FM_* environment, sent the token over unverified TLS to an on-path attacker. Found by CodeRabbit on PR 734; kaseya-vsa carries the same fix (loose-config-no-tls-or-server). Test: TestLoad_LooseConfigCannotWeakenTLS fails with the press code restored.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press: dropUntrustedTLSSettings should clear SkipTLSVerify (upstream note, not filed)",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "\tc.SkipTLSVerify = false\n\tc.CACert = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if !c.SkipTLSVerify && strings.TrimSpace(c.CACert) == \"\" && strings.TrimSpace(c.TLSServerName) == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/loose_tls_test.go",
+     "contains": "func TestLoad_LooseConfigCannotWeakenTLS"
+    }
+   ]
   }
  ],
  "retired": [

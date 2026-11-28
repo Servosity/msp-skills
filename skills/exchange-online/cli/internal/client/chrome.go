@@ -6,6 +6,7 @@ package client
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -17,6 +18,8 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"exchange-online-pp-cli/internal/credkit"
 
 	utls "github.com/refraction-networking/utls"
 	"golang.org/x/net/http/httpproxy"
@@ -258,7 +261,13 @@ func chromeProxyCONNECT(ctx context.Context, conn net.Conn, addr string, proxyUR
 		password, _ := user.Password()
 		connect.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(user.Username()+":"+password)))
 	}
-	if err := connect.Write(conn); err != nil {
+	// The kit's transport never sees this CONNECT (h1.Proxy is nil), so the
+	// kit judges and writes it, as it judges the one Go writes (contract 2(c)).
+	var unit bytes.Buffer
+	if err := connect.Write(&unit); err != nil {
+		return nil, err
+	}
+	if err := credkit.ProxyWrite(conn, proxyURL, unit.Bytes()); err != nil {
 		return nil, err
 	}
 	br := bufio.NewReader(conn)

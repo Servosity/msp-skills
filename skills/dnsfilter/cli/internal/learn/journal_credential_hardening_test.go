@@ -138,7 +138,13 @@ func TestJournalLineThatEchoesAHeldValueIsNotWritten(t *testing.T) {
 		t.Run(secret, func(t *testing.T) {
 			home := hardeningHome(t)
 			credkit.Hold("test:journal", secret)
-			err := learn.AppendJournalEntry(learn.JournalEntry{Cmd: []string{"items", "x" + secret}, ExitCode: 0})
+			echo := "x" + secret
+			if len(secret) < 8 {
+				// A value under 8 characters counts only as a whole token now (contract 2(a), section 6 item 11):
+				// "x482915" was caught only through a charset reading that started mid-token, so echo it bounded.
+				echo = "x-" + secret
+			}
+			err := learn.AppendJournalEntry(learn.JournalEntry{Cmd: []string{"items", echo}, ExitCode: 0})
 			if err != nil && !errors.Is(err, credkit.ErrWithheld) {
 				t.Errorf("AppendJournalEntry = %v", err)
 			}

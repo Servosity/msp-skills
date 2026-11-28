@@ -61,8 +61,8 @@ const sep = 0xFF
 
 // Memo keys: a decoder reads a given input once per unit. Each queue that
 // reads its input its own way (a short value anywhere, a text view, a final
-// view) has a key of its own, so an input queued one way is never skipped
-// when it comes again for another.
+// view, a no-short view) has a key of its own, so an input queued one way is
+// never skipped when it comes again for another.
 const (
 	idRun uint64 = iota + 1
 	idROT13
@@ -75,11 +75,18 @@ const (
 )
 
 // decoding collects one view's decodings, by provenance: bk[n] is what
-// decodes from inside n headerless raw deflate streams.
+// decodes from inside n headerless raw deflate streams, and nsb[n] the same
+// for no-short views (ns).
 type decoding struct {
 	s     *scan
 	depth int
 	any   bool // the view is run decoders' outputs (view.any)
+	// ns: what this decoding queues now is a no-short view, where no value
+	// shorter than pieceLen that counts only as a whole token is compared
+	// (contract 2(a), amended 2026-11-27): the view it reads is one (view.ns),
+	// or a run or stream decoder is reading it (noShort). It starts as the
+	// view's mark, which the view's own comparison uses.
+	ns    bool
 	text  bool // the view is a text view (view.text)
 	final bool // the view's decodings are matched, not decoded further (view.final)
 	tail  bool // the view's parts end where the unit ends (view.tail)
@@ -91,7 +98,8 @@ type decoding struct {
 	// the unit ends: a reading that reaches it ends there too.
 	tailEnd *byte
 	bk      [maxRawNest + 1]bucket
-	f       int // the bucket outputs go to
+	nsb     *[maxRawNest + 1]bucket // the no-short buckets, made when first used
+	f       int                     // the bucket outputs go to
 	buf     []byte
 	pos     []int32
 	toks    []codeTok
@@ -103,14 +111,70 @@ type bucket struct {
 	text  [][]byte // whole text readings, read by the text decoders
 	tjunk []byte   // substitution text readings (NFKC), NUL-separated: one text part
 	tany  []byte   // charset and wide readings, NUL-separated: one text part in
-	// which a short value counts anywhere, since every start offset of a
-	// stream decoder is a candidate (contract 3, Candidates)
+	// which a short spelling counts anywhere, since every start offset of a
+	// stream decoder is a candidate (contract 3, Candidates); with shortTok
+	// it is a no-short view, where only a long value's spelling counts
 	bjunk []byte // bytes broken raw deflate streams yield: one final text part
 	rjunk []byte // run decoders' outputs, NUL-separated: one byte part in
-	// which a short value counts anywhere, since every span of a run is a
-	// candidate and so a view boundary
+	// which a short spelling counts anywhere, since every span of a run is a
+	// candidate and so a view boundary; with shortTok it is a no-short view,
+	// where only a long value's spelling counts
 	tbytes [][]byte // bytes and text, for decodings of a whole part that
 	ttext  [][]byte // ends where the unit ends: they end there too
+}
+
+// nsKinds sets the fresh keys of no-short views' parts apart from the
+// others (decoding.pv): a part queued as one is never skipped when it comes
+// again as a view that compares short values.
+const nsKinds = 2 * tailKinds
+
+// bucket is where this decoding's outputs go now: by raw nesting, and apart
+// for a no-short view.
+func (d *decoding) bucket() *bucket {
+	if !d.ns {
+		return &d.bk[d.f]
+	}
+	if d.nsb == nil {
+		d.nsb = new([maxRawNest + 1]bucket)
+	}
+	return &d.nsb[d.f]
+}
+
+// bucketAt is the bucket for raw nesting f, a no-short one when ns; nil for
+// a no-short bucket never made.
+func (d *decoding) bucketAt(f int, ns bool) *bucket {
+	if !ns {
+		return &d.bk[f]
+	}
+	if d.nsb == nil {
+		return nil
+	}
+	return &d.nsb[f]
+}
+
+// pv is the provenance fresh keys a part queued now by: its raw nesting,
+// whether it ends where the unit ends (tail), and whether it is a no-short
+// view.
+func (d *decoding) pv(tail bool) int {
+	f := d.f
+	if tail {
+		f += tailKinds
+	}
+	if d.ns {
+		f += nsKinds
+	}
+	return f
+}
+
+// noShort marks what a run or stream decoder about to read queues as a
+// no-short view, and returns the mark to restore after it (contract 2(a):
+// a short value is compared only in the raw unit and in substitution
+// decoders' views). A matcher without shortTok compares no short value
+// differently anywhere, so nothing is marked.
+func (d *decoding) noShort() (restore bool) {
+	restore = d.ns
+	d.ns = d.ns || d.s.m.shortTok
+	return restore
 }
 
 // Decoder families: a large part's families run as tasks of their own
@@ -144,10 +208,13 @@ func (d *decoding) part(p []byte, text bool, fam int, tr *textRuns) {
 		d.tailEnd = &p[len(p)-1]
 	}
 	in := func(f int) bool { return fam == famAll || fam == f }
-	if in(famHit) && s.hitIn(p, d.any) {
+	if in(famHit) && s.hitView(p, d.any, d.ns) {
 		s.stop(leak)
 		return
 	}
+	// The stream decoders (compressed streams and charsets): what they
+	// queue is a no-short view (noShort).
+	ns := d.noShort()
 	if text && d.final {
 		// A final view (limits.go, brokenText) is read by the byte
 		// decoders that find their input by a header or a pattern
@@ -162,6 +229,7 @@ func (d *decoding) part(p []byte, text bool, fam int, tr *textRuns) {
 	if !text {
 		if in(famRaw) {
 			if d.f >= maxRawNest {
+				d.ns = ns
 				s.stop(exhausted) // past the depth limit: a stream here goes unread
 				return
 			}
@@ -177,6 +245,7 @@ func (d *decoding) part(p []byte, text bool, fam int, tr *textRuns) {
 			d.multiByte(p)
 		}
 	}
+	d.ns = ns
 	if fam == famHit || fam > famHit && fam < famRest {
 		return
 	}
@@ -272,6 +341,9 @@ func (t *textRuns) get(d *decoding, p []byte) {
 // decoder-context-dedupe); it is skipped when such a read came first.
 func (d *decoding) once(id uint64, b []byte) bool {
 	id ^= uint64(d.f&0xffff) << 48 // the same bits as uint64(d.f) << 48
+	if d.ns {
+		id ^= 1 << 46 // a no-short view's reads are its own (noShort)
+	}
 	if d.final {
 		return d.s.onceUnless(id^1<<47, id, b)
 	}
@@ -310,7 +382,8 @@ func (d *decoding) out(b []byte) {
 		return
 	}
 	if d.s.charge(len(b) + 1) {
-		d.bk[d.f].bytes = append(d.bk[d.f].bytes, bytes.Clone(b))
+		k := d.bucket()
+		k.bytes = append(k.bytes, bytes.Clone(b))
 	}
 }
 
@@ -327,37 +400,39 @@ func (d *decoding) tiny(b []byte, anywhere bool) bool {
 		return false
 	}
 	// exact: with no short or digit-only value held, fewer than 4 bytes can
-	// match only through a character normalization expands.
-	if len(b) > 0 && (len(b) >= tinyView || d.s.m.short || len(d.s.m.numWhole) > 0 || !allInert(b)) && d.s.hitIn(b, anywhere) {
+	// match only through a character normalization expands. A no-short view
+	// (ns) compares no short value, so there a short value held is as none.
+	if len(b) > 0 && (len(b) >= tinyView || d.s.m.short && !d.ns || len(d.s.m.numWhole) > 0 || !allInert(b)) && d.s.hitView(b, anywhere, d.ns) {
 		d.s.stop(leak)
 	}
 	return true
 }
 
-// compared compares b under section 2, a short value anywhere in it, and
-// decodes it no further.
+// compared compares b under section 2, a short value anywhere in it (none
+// in a no-short view), and decodes it no further.
 func (d *decoding) compared(b []byte) {
-	if d.s.charge(len(b)+1) && d.s.hitIn(b, true) {
+	if d.s.charge(len(b)+1) && d.s.hitView(b, true, d.ns) {
 		d.s.stop(leak)
 	}
 }
 
 // runOut adds a run decoder's output: a piece of the view's part in which
-// a short value counts anywhere.
+// a short spelling counts anywhere (a no-short view's: only a long value's).
 func (d *decoding) runOut(b []byte) {
 	if d.tiny(b, true) || !d.once(idRunOut, b) { // exact: a view read already
 		return
 	}
 	if d.s.charge(len(b) + 1) {
-		k := &d.bk[d.f]
+		k := d.bucket()
 		k.rjunk = append(append(k.rjunk, sep), b...)
 	}
 }
 
 // whole adds b as a part of its own, once per unit.
 func (d *decoding) whole(b []byte) {
-	if !d.tiny(b, false) && d.s.fresh(b, false, d.f) && d.s.charge(len(b)) {
-		d.bk[d.f].bytes = append(d.bk[d.f].bytes, bytes.Clone(b))
+	if !d.tiny(b, false) && d.s.fresh(b, false, d.pv(false)) && d.s.charge(len(b)) {
+		k := d.bucket()
+		k.bytes = append(k.bytes, bytes.Clone(b))
 	}
 }
 
@@ -369,8 +444,9 @@ func (d *decoding) wholeOf(b []byte) {
 		d.whole(b)
 		return
 	}
-	if !d.tiny(b, false) && d.s.fresh(b, false, d.f+tailKinds) && d.s.charge(len(b)) {
-		d.bk[d.f].tbytes = append(d.bk[d.f].tbytes, bytes.Clone(b))
+	if !d.tiny(b, false) && d.s.fresh(b, false, d.pv(true)) && d.s.charge(len(b)) {
+		k := d.bucket()
+		k.tbytes = append(k.tbytes, bytes.Clone(b))
 	}
 }
 
@@ -388,31 +464,34 @@ func (d *decoding) textOut(b []byte, whole bool) {
 	if d.tiny(b, false) || !whole && !d.once(idTextOut, b) || !d.s.charge(len(b)+1) {
 		return
 	}
+	k := d.bucket()
 	if whole && d.tail {
-		if d.s.fresh(b, true, d.f+tailKinds) {
-			d.bk[d.f].ttext = append(d.bk[d.f].ttext, bytes.Clone(b))
+		if d.s.fresh(b, true, d.pv(true)) {
+			k.ttext = append(k.ttext, bytes.Clone(b))
 		}
 		return
 	}
 	if whole {
-		if d.s.fresh(b, true, d.f) {
-			d.bk[d.f].text = append(d.bk[d.f].text, bytes.Clone(b))
+		if d.s.fresh(b, true, d.pv(false)) {
+			k.text = append(k.text, bytes.Clone(b))
 		}
 		return
 	}
-	d.bk[d.f].tjunk = append(append(d.bk[d.f].tjunk, sep), b...)
+	k.tjunk = append(append(k.tjunk, sep), b...)
 }
 
 // charOut adds a charset or wide (UTF-16/UTF-32) reading: a text reading
 // of a stream decoder, which starts at every byte offset (contract 3,
-// Candidates), so a short value anywhere in it counts. It is a text view
-// (read by the text decoders, not re-read by the charsets: limits.go
-// textViews), unlike a run decoder's byte output.
+// Candidates), so a short spelling anywhere in it counts (a no-short
+// view's: only a long value's). It is a text view (read by the text
+// decoders, not re-read by the charsets: limits.go textViews), unlike a run
+// decoder's byte output.
 func (d *decoding) charOut(b []byte) {
 	if d.tiny(b, true) || !d.once(idCharOut, b) || !d.s.charge(len(b)+1) {
 		return
 	}
-	d.bk[d.f].tany = append(append(d.bk[d.f].tany, sep), b...)
+	k := d.bucket()
+	k.tany = append(append(k.tany, sep), b...)
 }
 
 // changed adds a decoding that rewrote text in place: whole when its input
@@ -440,8 +519,9 @@ func (d *decoding) changed(b []byte, whole bool) {
 }
 
 // fresh reports whether b is not yet queued as a part of this kind at
-// provenance f (decoding.pv), and records it. A byte part is read by every decoder, so a
-// text part that repeats one is not fresh.
+// provenance f (decoding.pv: raw nesting, tail, no-short), and records it.
+// A byte part is read by every decoder, so a text part that repeats one is
+// not fresh.
 func (c *closure) fresh(b []byte, text bool, f int) bool {
 	return c.freshKey(hash2(b), text, f)
 }
@@ -497,8 +577,12 @@ func (d *decoding) decText(t []byte, whole bool, fam int) {
 		}
 		return
 	}
+	// The run decoders (base-N, hex, character-code lists): what they queue
+	// is a no-short view (noShort).
+	ns := d.noShort()
 	for i := range alphabets {
 		if !s.ok() {
+			d.ns = ns
 			return
 		}
 		if fam == famAll || fam == famBase+i {
@@ -506,11 +590,15 @@ func (d *decoding) decText(t []byte, whole bool, fam int) {
 		}
 	}
 	if fam != famAll && fam != famRest {
+		d.ns = ns
 		return
 	}
 	d.hex(t)
+	d.ns = ns
 	d.subst(t, whole)
+	d.noShort() // the view's mark is ns already
 	d.codeLists(t)
+	d.ns = ns
 	// The normalized views: NFKC, and case folded (contract 3). NFKC of a
 	// text view is a text view (limits.go, textViews).
 	if !allInert(t) {
@@ -1044,8 +1132,9 @@ func (d *decoding) codeLists(b []byte) {
 				if len(ents) >= 2 { // exact: contract 3, a list is two or more tokens
 					// runOut, not out: every sub-list of two or more tokens
 					// is its own candidate (contract 3, Candidates), so a
-					// short value anywhere in the decoded list counts, as it
-					// does for the other run decoders.
+					// short spelling anywhere in the decoded list counts, as
+					// it does for the other run decoders (a no-short view's:
+					// only a long value's).
 					d.runOut(cur)
 					d.codeSpans(ents, base, bytesMode)
 				}
@@ -1641,10 +1730,10 @@ func (d *decoding) finalOut(b []byte) {
 	if d.tiny(b, false) || !d.once(idFinalOut, b) || !d.s.charge(len(b)+1) {
 		return
 	}
-	k := &d.bk[d.f]
+	k := d.bucket()
 	k.bjunk = append(append(k.bjunk, sep), b...)
 	if len(k.bjunk) >= finalFlush { // exact: scheduling, the part is read now or at the next level
-		d.readFinal(d.f)
+		d.readFinal()
 	}
 }
 
@@ -1663,14 +1752,15 @@ var readFinalHook func(int)
 // final view's decoders, which compare what they decode and queue nothing
 // (tiny), so reading it here or there reads the same views. It reads on a
 // scan of its own: the caller may be inside a decoder whose scratch it
-// holds (rawStreams, broken).
-func (d *decoding) readFinal(f int) {
-	s, k := d.s, &d.bk[f]
+// holds (rawStreams, broken). The bucket is the one outputs go to now
+// (bucket), so the part read is a no-short view when they are.
+func (d *decoding) readFinal() {
+	s, k, f := d.s, d.bucket(), d.f
 	p := k.bjunk
 	if readFinalHook != nil {
 		readFinalHook(len(p))
 	}
-	if s.fresh(p, true, f) && s.ok() {
+	if s.fresh(p, true, d.pv(false)) && s.ok() {
 		if d.depth > maxDepth {
 			s.stop(exhausted)
 			return
@@ -1678,10 +1768,10 @@ func (d *decoding) readFinal(f int) {
 		if s.fin == nil {
 			s.fin = &scan{closure: s.closure, segs: map[string]string{}, defl: memoPool.Get().(*deflateMemo)}
 		}
-		r := decoding{s: s.fin, depth: d.depth + 1, f: f, final: true}
+		r := decoding{s: s.fin, depth: d.depth + 1, f: f, ns: d.ns, final: true}
 		r.part(p, true, famAll, nil)
-		for i := range r.bk {
-			if b := &r.bk[i]; len(b.bytes)+len(b.text)+len(b.tjunk)+len(b.tany)+len(b.bjunk)+len(b.rjunk)+len(b.tbytes)+len(b.ttext) > 0 {
+		for i := range 2 * (maxRawNest + 1) {
+			if b := r.bucketAt(i%(maxRawNest+1), i > maxRawNest); b != nil && len(b.bytes)+len(b.text)+len(b.tjunk)+len(b.tany)+len(b.bjunk)+len(b.rjunk)+len(b.tbytes)+len(b.ttext) > 0 {
 				s.stop(exhausted) // fail closed: a final view's decoders queue nothing (tiny)
 			}
 		}
@@ -1889,11 +1979,13 @@ func wideRune(b []byte, unit int, big bool) (rune, int) {
 // wideOut adds a UTF-16 or UTF-32 reading's bytes (its characters up to
 // 0xFF): read as bytes, so a nested layer decodes again, and, since a
 // charset reading starts at every byte offset (contract 3, Candidates),
-// compared with a short value counted anywhere.
+// compared with a short value counted anywhere (none counts in a no-short
+// view, which this is whenever shortTok: noShort).
 func (d *decoding) wideOut(b []byte) {
 	// exact: with no short or digit-only value held, anywhere matches as
-	// the comparison out makes does.
-	if len(b) > 0 && (d.s.m.short || len(d.s.m.numWhole) > 0) && d.s.hitIn(b, true) {
+	// the comparison out makes does, and a no-short view (ns) compares no
+	// short value, so there a short value held is as none.
+	if len(b) > 0 && (d.s.m.short && !d.ns || len(d.s.m.numWhole) > 0) && d.s.hitView(b, true, d.ns) {
 		d.s.stop(leak)
 		return
 	}
@@ -2246,7 +2338,7 @@ func (d *decoding) multiByte(p []byte) {
 // from there on. So the readings are the one from offset 0 and, for each
 // switch, the ones from the byte after it and from the byte after the
 // introducer before it; every other reading is a suffix of one of those,
-// and charOut counts a short value anywhere. An introducer the decoder
+// and charOut counts a short spelling anywhere. An introducer the decoder
 // does not accept as a switch reads as U+FFFD, which is no reading of any
 // character, so it starts no reading of its own. A reading identical to
 // the bytes as written is that view, read already.

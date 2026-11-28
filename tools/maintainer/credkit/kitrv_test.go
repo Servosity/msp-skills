@@ -256,8 +256,14 @@ func TestKitrvCredentialFlagClusters(t *testing.T) {
 // Class decoder-binary-intermediate-pruning (contract 3): every character a
 // held value has is relevant, an ASCII control character included.
 func TestKitrvHeldControlCharactersAreRelevant(t *testing.T) {
+	// A one-character value is not compared in a charset's reading (contract
+	// 2(a), amended 2026-11-27); an 8-character one with ESC in it is.
 	holding(t, "\x1b")
-	if !leaks("\x27") { // IBM Code Page 037 reads 0x27 as ESC
+	if leaks("\x27") { // IBM Code Page 037 reads 0x27 as ESC
+		t.Error("a short value withheld through a charset reading (contract 2(a))")
+	}
+	holding(t, "a\x1bb\x1bc\x1bd\x1b")
+	if !leaks("\x81\x27\x82\x27\x83\x27\x84\x27") { // the same in IBM Code Page 037
 		t.Error("a held control character spelled in EBCDIC was not found")
 	}
 	holding(t, "a\x01b\x02c\x03d\x04")

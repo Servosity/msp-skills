@@ -250,31 +250,38 @@ func deviceVendor(t *testing.T, device string) *vendor {
 }
 
 // TestP1WhitespaceCommunityEncodedEchoNeverPrints is the open P1
-// whitespace-credential-encoded-echo, its input as given: a device whose
-// details carry the SNMP read community " \t " (whitespace only) and whose
-// display_name is "IAkg", that community's base64. The selected name must not
-// print from the CLI or from MCP. A control device whose community is another
-// value prints the same name, so the select path does print a field (MCP reads
-// the whole record, community included, so its control is withheld whole).
+// whitespace-credential-encoded-echo: a device whose details carry the SNMP read
+// community " \t " (whitespace only). The review's display_name was "IAkg", that
+// community's base64; a value under 8 characters is no longer compared in a run
+// decoder's view (contract 2(a), section 6 item 11), so that name now prints.
+// The community itself, standing as a whole token in the name "[ \t ]", must
+// not print from the CLI (as JSON, where it is escaped) or from MCP. A control
+// device whose community is another value prints the same name from both, so
+// each path does print the field.
 func TestP1WhitespaceCommunityEncodedEchoNeverPrints(t *testing.T) {
 	cliBin, mcpBin := binaries(t)
 	const key = "Lq4vN8xT2m" + "R6pW9sK3bZ7c"
+	const name = "[ \t ]"
 	for _, c := range []struct {
 		community string
 		printed   bool
 	}{{" \t ", false}, {"Zq", true}} {
-		v := deviceVendor(t, `{"id":2,"protocol":"IP","display_name":"IAkg","details":{"snmp_read_community":`+fmt.Sprintf("%q", c.community)+`}}`)
+		v := deviceVendor(t, `{"id":2,"protocol":"IP","display_name":`+fmt.Sprintf("%q", name)+`,"details":{"snmp_read_community":`+fmt.Sprintf("%q", c.community)+`}}`)
 		home := t.TempDir()
 		env := closedEnv(home, append(v.env(key), "DOMOTZ_CLI_PATH="+cliBin)...)
-		out := run(t, cliBin, env, "agent", "device", "get", "1", "2", "--select", "display_name", "--plain")
+		out := run(t, cliBin, env, "agent", "device", "get", "1", "2", "--select", "display_name", "--json")
 		if v.hits.Load() == 0 {
 			t.Fatalf("no request reached the vendor, so this run proves nothing:\n%s", out)
 		}
 		mcp := mcpCall(t, mcpBin, env, `{"name":"domotz_read","arguments":{"endpoint_id":"agent.device.get","params":{"agent_id":"1","device_id":"2"}}}`)
-		if strings.Contains(out, "IAkg") != c.printed {
-			t.Errorf("community %q: agent device get --select display_name --plain printed IAkg %v, want %v:\n%.1500s", c.community, !c.printed, c.printed, out)
+		// The name as JSON writes it: "[ ", an escaped tab, " ]".
+		if strings.Contains(out, `[ \t ]`) != c.printed {
+			t.Errorf("community %q: agent device get --select display_name --json printed %q %v, want %v:\n%.1500s", c.community, name, !c.printed, c.printed, out)
 		}
-		assertAbsent(t, "MCP domotz_read agent.device.get", mcp, "IAkg")
+		// MCP nests it in a text field, so its escape is doubled; "[ " opens it either way.
+		if strings.Contains(mcp, "[ ") != c.printed {
+			t.Errorf("community %q: MCP domotz_read agent.device.get printed %q %v, want %v:\n%.1500s", c.community, name, !c.printed, c.printed, mcp)
+		}
 	}
 }
 

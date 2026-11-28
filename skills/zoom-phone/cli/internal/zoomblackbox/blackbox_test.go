@@ -336,45 +336,59 @@ func scanFiles(t *testing.T, home string, allowed func(rel string) bool, secrets
 	return n
 }
 
-// Round-2 input 1 (short-values), verbatim: a 3-character PIN, echoed by HTTP 400
-// inside base64 of "PIN:123".
+// Round-2 input 1 (short-values): a 3-character PIN, echoed by HTTP 400 inside base64
+// of "PIN:123". A held value under 8 characters is no longer compared in a run decoder's
+// view (contract 2(a), section 6 item 11), so the base64 echo now shows, and 123, public
+// text before only through decoder noise, no longer refuses the start: the PIN is sent to
+// its own origin. The same PIN echoed as written, a whole token, is still withheld.
 func TestShortPinInsideEncodedMessage(t *testing.T) {
 	const encoded = "UElOOjEyMw=="
 	a := newAPI(t, func(w http.ResponseWriter, r *http.Request, body string) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `{"message":%q}`, encoded)
-	})
-	e := newEnv(t, a).stored(t)
-	out := e.run(t, "common-areas", "update-pin-code", "CA", "--pin-code", "123", "--yes", "--json")
-	if strings.Contains(out, "UElOOjEyMw") || strings.Contains(out, "PIN:123") {
-		t.Errorf("CLI shows the PIN in its encoded echo:\n%s", out)
-	}
-	if a.sawBody(`"pin_code":"123"`) {
-		// 123 is in the kit's public text (contract section 2): held at startup it refuses to start.
-		t.Errorf("a PIN that collides with public text was sent:\n%s", out)
-	}
-	mcp := e.mcpCalls(t, []map[string]any{{"name": "zoom-phone_execute", "arguments": map[string]any{
-		"endpoint_id": "common_areas.update-pin-code", "confirm": true,
-		"params": map[string]any{"commonAreaId": "CA", "pin_code": "123"}}}})
-	if strings.Contains(mcp, "UElOOjEyMw") {
-		t.Errorf("MCP shows the PIN in its encoded echo:\n%s", mcp)
-	}
-}
-
-// The same input with a 4-digit PIN, which starts: the request carries it and the
-// encoded echo never shows, on a success result either.
-func TestShortPinSentAndHeld(t *testing.T) {
-	const pin, encoded = "7319", "UElOOjczMTk="
-	a := newAPI(t, func(w http.ResponseWriter, r *http.Request, body string) {
-		if r.URL.Query().Get("ok") == "" && strings.Contains(r.URL.Path, "/CA/") {
-			w.WriteHeader(http.StatusBadRequest)
+		if strings.Contains(r.URL.Path, "/RAW/") {
+			fmt.Fprint(w, `{"message":"PIN:123"}`)
+			return
 		}
 		fmt.Fprintf(w, `{"message":%q}`, encoded)
 	})
 	e := newEnv(t, a).stored(t)
+	out := e.run(t, "common-areas", "update-pin-code", "CA", "--pin-code", "123", "--yes", "--json")
+	if !strings.Contains(out, "UElOOjEyMw") || strings.Contains(out, "PIN:123") {
+		t.Errorf("CLI: the base64 echo should show (contract 2(a), section 6 item 11) and the raw one never:\n%s", out)
+	}
+	if !a.sawBody(`"pin_code":"123"`) {
+		t.Errorf("the request lost the PIN: %q\n%s", a.bodies, out)
+	}
+	raw := e.run(t, "common-areas", "update-pin-code", "RAW", "--pin-code", "123", "--yes", "--json")
+	if strings.Contains(raw, "PIN:123") {
+		t.Errorf("CLI shows the PIN echoed as written:\n%s", raw)
+	}
+	mcp := e.mcpCalls(t, []map[string]any{{"name": "zoom-phone_execute", "arguments": map[string]any{
+		"endpoint_id": "common_areas.update-pin-code", "confirm": true,
+		"params": map[string]any{"commonAreaId": "RAW", "pin_code": "123"}}}})
+	if strings.Contains(mcp, "PIN:123") {
+		t.Errorf("MCP shows the PIN echoed as written:\n%s", mcp)
+	}
+	if !strings.Contains(mcp, `"id":1`) {
+		t.Errorf("the MCP call never answered:\n%s", mcp)
+	}
+}
+
+// The same input with a 4-digit PIN: the request carries it and the PIN echoed as
+// written, a whole token, never shows, on a success result either. Its base64 echo is
+// no longer compared (contract 2(a), section 6 item 11).
+func TestShortPinSentAndHeld(t *testing.T) {
+	const pin, echo = "7319", "PIN:7319"
+	a := newAPI(t, func(w http.ResponseWriter, r *http.Request, body string) {
+		if r.URL.Query().Get("ok") == "" && strings.Contains(r.URL.Path, "/CA/") {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		fmt.Fprintf(w, `{"message":%q}`, echo)
+	})
+	e := newEnv(t, a).stored(t)
 	out := e.run(t, "common-areas", "update-pin-code", "CA", "--pin-code", pin, "--yes", "--json")
-	if strings.Contains(out, "UElOOjczMTk") {
-		t.Errorf("CLI shows the PIN in its encoded echo:\n%s", out)
+	if strings.Contains(out, echo) {
+		t.Errorf("CLI shows the PIN in its echo:\n%s", out)
 	}
 	if !a.sawBody(`"pin_code":"` + pin + `"`) {
 		t.Errorf("the request lost the PIN: %q\n%s", a.bodies, out)
@@ -385,13 +399,18 @@ func TestShortPinSentAndHeld(t *testing.T) {
 			"params": map[string]any{"commonAreaId": "CB", "pin_code": pin}}},
 		read("users.phone-settings", map[string]any{"userId": "u1"}),
 	})
-	if strings.Contains(mcp, "UElOOjczMTk") {
-		t.Errorf("MCP shows the PIN in its encoded echo:\n%s", mcp)
+	if strings.Contains(mcp, echo) {
+		t.Errorf("MCP shows the PIN in its echo:\n%s", mcp)
+	}
+	if !strings.Contains(mcp, `"id":2`) {
+		t.Errorf("the second MCP call never answered:\n%s", mcp)
 	}
 }
 
 // Round-2 input 2 (retention): after 4,097 PINs a response carried, an error echoes
-// the first in base64. Nothing ages out of what the process holds.
+// the first and the last. Nothing ages out of what the process holds. The echo is
+// written as is: a 6-digit PIN is no longer compared in its base64 or hex spelling
+// (contract 2(a), section 6 item 11), and the ids ("u100000") carry no whole token.
 func TestRetentionAfter4097ObservedPins(t *testing.T) {
 	var pins strings.Builder
 	for n := 100000; n <= 104096; n++ {
@@ -403,7 +422,7 @@ func TestRetentionAfter4097ObservedPins(t *testing.T) {
 	a := newAPI(t, func(w http.ResponseWriter, r *http.Request, body string) {
 		if strings.HasSuffix(r.URL.Path, "/echo/settings") {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, `{"message":"MTAwMDAw","n":"313030303031"}`)
+			fmt.Fprint(w, `{"message":"first=100000","n":"last=104096"}`)
 			return
 		}
 		fmt.Fprintf(w, `{"users":[%s]}`, pins.String())
@@ -413,7 +432,7 @@ func TestRetentionAfter4097ObservedPins(t *testing.T) {
 		read("users.phone-settings", map[string]any{"userId": "u1"}),
 		read("users.phone-settings", map[string]any{"userId": "echo"}),
 	})
-	for _, bad := range []string{"MTAwMDAw", "313030303031", "100000", "104096"} {
+	for _, bad := range []string{"first=100000", "last=104096"} {
 		if strings.Contains(out, bad) {
 			t.Errorf("the MCP session shows %q:\n%.1500s", bad, out)
 		}

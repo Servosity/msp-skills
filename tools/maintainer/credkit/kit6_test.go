@@ -37,8 +37,10 @@ func TestKit6CodeListTokenEdges(t *testing.T) {
 		}
 	}
 	// The longest-suffix and longest-prefix rule, where it is the only reading.
-	holding(t, "\U000F3ECBecret!")
-	if !withheld([]byte("q9999115,101,99,114,101,116,33")) { // 9999115 is past 10FFFF; its longest scalar suffix is 999115 (U+F3ECB)
+	// The held value has 8 characters: a shorter one is not compared in a
+	// run decoder's view (contract 2(a), amended 2026-11-27).
+	holding(t, "\U000F3ECBecret!!")
+	if !withheld([]byte("q9999115,101,99,114,101,116,33,33")) { // 9999115 is past 10FFFF; its longest scalar suffix is 999115 (U+F3ECB)
 		t.Error("the longest scalar suffix of a first run was not read")
 	}
 	holding(t, "ecret!!\U00050D6A")

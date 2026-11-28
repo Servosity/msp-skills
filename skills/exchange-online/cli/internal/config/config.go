@@ -964,14 +964,17 @@ func (c *Config) dropUntrustedTLSSettings() {
 	if c == nil {
 		return
 	}
-	if strings.TrimSpace(c.CACert) == "" && strings.TrimSpace(c.TLSServerName) == "" {
+	// Hand-fix (handfixes.json loose-config-skip-tls-verify): skip_tls_verify
+	// is a TLS setting too, cleared with the other two.
+	if !c.SkipTLSVerify && strings.TrimSpace(c.CACert) == "" && strings.TrimSpace(c.TLSServerName) == "" {
 		return
 	}
 	where := strings.TrimSpace(c.Path)
 	if where == "" {
 		where = "config file"
 	}
-	fmt.Fprintf(os.Stderr, "warning: ignoring ca_cert and tls_server_name from %s because other users can change it\n", where)
+	fmt.Fprintf(os.Stderr, "warning: ignoring skip_tls_verify, ca_cert and tls_server_name from %s because other users can change it\n", where)
+	c.SkipTLSVerify = false
 	c.CACert = ""
 	c.TLSServerName = ""
 }

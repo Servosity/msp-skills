@@ -4,7 +4,8 @@ package credkit
 
 // Contract 2 (a) and (b), and contract 3's budget. A unit leaks when, after
 // any chain of the decodings in decode.go and charset.go, it carries a held
-// value whole (a value under 8 characters only as a whole token) or a
+// value whole (a value under 8 characters only as a whole token, and only in
+// the raw unit and the views substitution decoders make from it) or a
 // contiguous piece of one 8 or more characters long. Both sides are compared
 // after NFKC and case folding. A character is a code point, or a byte where
 // the text is not valid UTF-8. When the depth or decoded-bytes budget runs
@@ -57,11 +58,17 @@ const pieceLen = 8
 type matcher struct {
 	ac       *automaton          // nil when every pattern is a word
 	words    *wordSet            // the patterns of exactly pieceLen bytes that count anywhere
-	numWhole map[string]struct{} // canonical forms of digit-only values
+	numWhole map[string]bool     // canonical forms of digit-only values: true for a short value's (shortTok)
 	numWin   map[string]struct{} // 8-digit windows of those forms
 	maxLen   int                 // the longest normalized value, in bytes
 	short    bool                // a value shorter than pieceLen is held
-	heldNUL  bool                // a held value has a NUL byte
+	// shortTok: a value shorter than pieceLen is held that counts only as a
+	// whole token (every matcher but newRequestMatcher's). Such a value is
+	// compared only in the raw unit and in substitution decoders' views
+	// (contract 2(a)): a view a run or stream decoder makes, and every view
+	// decoded from one, is a no-short view (decoding.ns).
+	shortTok bool
+	heldNUL  bool // a held value has a NUL byte
 	norms    [][]byte
 	binary   bool // a held value is not UTF-8 (decoding.part reads non-text parts whole too)
 
@@ -134,7 +141,7 @@ func newRequestMatcher(vals []string) *matcher { return buildMatcher(vals, nil, 
 // pair "user:password" whose user is an Identifier: a piece lying wholly
 // inside "user:" is not held, by position alone (KF-JSM-1, userKeep).
 func buildMatcher(vals []string, userCut map[string]bool, anywhere, whole bool) *matcher {
-	m := &matcher{numWhole: map[string]struct{}{}, numWin: map[string]struct{}{}}
+	m := &matcher{numWhole: map[string]bool{}, numWin: map[string]struct{}{}}
 	pats := map[string]bool{} // normalized pattern -> short (whole token only)
 	for _, v := range vals {
 		m.heldNUL = m.heldNUL || strings.IndexByte(v, 0) >= 0
@@ -186,6 +193,7 @@ func buildMatcher(vals []string, userCut map[string]bool, anywhere, whole bool) 
 			}
 		} else {
 			m.short = true
+			m.shortTok = m.shortTok || !anywhere
 			for _, w := range []string{string(n), rot13s(string(n))} {
 				if _, ok := pats[w]; !ok {
 					pats[w] = !anywhere
@@ -193,7 +201,12 @@ func buildMatcher(vals []string, userCut map[string]bool, anywhere, whole bool) 
 			}
 		}
 		if allDigits(n) {
-			m.numWhole[canonDigits(n)] = struct{}{}
+			// A short value's spellings follow 2(a)'s short rule (shortTok);
+			// a long value's, even a short spelling, are as before. One
+			// canonical form for both is the long value's.
+			k := canonDigits(n)
+			st, seen := m.numWhole[k]
+			m.numWhole[k] = (st || !seen) && !long && !anywhere
 			for i := 0; i+pieceLen <= len(n) && !whole; i++ {
 				m.numWin[string(n[i:i+pieceLen])] = struct{}{} // pieces as written
 			}
@@ -421,9 +434,15 @@ func newAutomaton(pats map[string]bool) *automaton {
 // hit reports whether the normalized text n carries a held value.
 func (m *matcher) hit(n []byte) bool { return m.hitIn(n, false) }
 
-// hitIn is hit, with a short value counted anywhere when anywhere is set
-// (a run decoder's output, every span of which is a view of its own).
-func (m *matcher) hitIn(n []byte, anywhere bool) bool {
+// hitIn is hitView in a view that compares short values.
+func (m *matcher) hitIn(n []byte, anywhere bool) bool { return m.hitView(n, anywhere, false) }
+
+// hitView is hit, with a short value counted anywhere when anywhere is set
+// (a run decoder's output, every span of which is a view of its own), and
+// no short value compared when noShort is set: n is a no-short view
+// (contract 2(a), decoding.ns). A long digit-only value's short spelling
+// still counts there, anywhere when anywhere is set.
+func (m *matcher) hitView(n []byte, anywhere, noShort bool) bool {
 	if m.rec != nil {
 		m.rec(n)
 	}
@@ -442,6 +461,9 @@ func (m *matcher) hitIn(n []byte, anywhere bool) bool {
 			s = a.next[int(s)*a.width+int(a.class[c])]
 			if o := a.out[s]; o >= 0 {
 				for _, p := range a.outs[o] {
+					if p.short && noShort {
+						continue
+					}
 					if !p.short || anywhere || tokenAt(n, i+1-p.n, i+1) {
 						return true
 					}
@@ -449,7 +471,7 @@ func (m *matcher) hitIn(n []byte, anywhere bool) bool {
 			}
 		}
 	}
-	return len(m.numWhole) > 0 && m.numberHit(n, anywhere)
+	return len(m.numWhole) > 0 && m.numberHit(n, anywhere, noShort)
 }
 
 // hitRaw is hit on bytes not yet normalized.
@@ -463,19 +485,22 @@ func (m *matcher) hitRaw(b []byte) bool {
 	return m.hit(normalize(b))
 }
 
-// tokenAt reports whether n[i:j] is a whole token (contract 2(a)): its
-// right side is the end of the text or a character that is not a letter or
-// digit. Only the right side is tested: UTF-8, and every charset that reads ASCII
-// as itself, start a reading at every byte offset (contract 3, Candidates
-// and Charsets), and a reading's start is a view boundary, so a short
-// value's left side is always one. Its right side is not: every such
-// reading runs to the view's end.
+// tokenAt reports whether n[i:j] is a whole token (contract 2(a)): each
+// side is the start or end of the text or a character that is not a letter
+// or digit. A charset reading that starts at every byte offset is a stream
+// decoder's view, where no short value is compared (decoding.ns), so its
+// start is no left boundary here (amended 2026-11-27).
 func tokenAt(n []byte, i, j int) bool {
-	return i >= 0 && !wordAfter(n[j:])
+	return i >= 0 && !wordBefore(n[:i]) && !wordAfter(n[j:])
 }
 
 func wordAfter(b []byte) bool {
 	r, sz := utf8.DecodeRune(b)
+	return sz > 0 && !(r == utf8.RuneError && sz == 1) && (unicode.IsLetter(r) || unicode.IsDigit(r))
+}
+
+func wordBefore(b []byte) bool {
+	r, sz := utf8.DecodeLastRune(b)
 	return sz > 0 && !(r == utf8.RuneError && sz == 1) && (unicode.IsLetter(r) || unicode.IsDigit(r))
 }
 
@@ -494,7 +519,8 @@ type view struct {
 	parts [][]byte
 	depth int
 	text  bool
-	any   bool // run decoders' outputs: a short value counts anywhere
+	any   bool // run and stream decoders' outputs: a short spelling counts anywhere (in a no-short view, only a long value's)
+	ns    bool // a no-short view: a run or stream decoder's, or decoded from one (decoding.ns)
 	final bool // its decodings are matched, not decoded further (limits.go, brokenText)
 	tail  bool // its parts end where the unit ends: a document open there is reported (checkOpen)
 	raw   int  // how many headerless raw deflate streams it decodes from inside
@@ -637,7 +663,7 @@ func (c *closure) step(level []view, depth int) []view {
 		}
 	}
 	run := func(s *scan, t *task) {
-		t.d = decoding{s: s, depth: depth, f: t.v.raw, any: t.v.any, final: t.v.final, tail: t.v.tail}
+		t.d = decoding{s: s, depth: depth, f: t.v.raw, any: t.v.any, ns: t.v.ns, final: t.v.final, tail: t.v.tail}
 		for _, p := range t.parts {
 			t.d.part(p, t.v.text, t.fam, t.tr)
 		}
@@ -689,27 +715,37 @@ func (c *closure) step(level []view, depth int) []view {
 		tasks[i].parts = nil
 	}
 	var out []view
-	for f := 0; f <= maxRawNest; f++ {
+	for nf := 0; nf <= 2*maxRawNest+1; nf++ {
+		// Every raw nesting, then every raw nesting again for the no-short
+		// views (decoding.ns), which only a matcher with shortTok makes.
+		ns, f := nf > maxRawNest, nf%(maxRawNest+1)
+		pv := f
+		if ns {
+			pv += nsKinds
+		}
 		var by, tx, ta, rj, bj, tby, ttx [][]byte
 		var tjunk, tany, rjunk, bjunk []byte
 		for i := range tasks {
-			k := &tasks[i].d.bk[f]
+			k := tasks[i].d.bucketAt(f, ns)
+			if k == nil {
+				continue
+			}
 			by, tx = append(by, k.bytes...), append(tx, k.text...)
 			tjunk, rjunk = append(tjunk, k.tjunk...), append(rjunk, k.rjunk...)
 			tany, bjunk = append(tany, k.tany...), append(bjunk, k.bjunk...)
 			tby, ttx = append(tby, k.tbytes...), append(ttx, k.ttext...)
 			k.tjunk, k.rjunk, k.tany, k.bjunk = nil, nil, nil, nil // copied: the collector may have them
 		}
-		if len(bjunk) > 0 && c.fresh(bjunk, true, f) {
+		if len(bjunk) > 0 && c.fresh(bjunk, true, pv) {
 			bj = append(bj, bjunk)
 		}
-		if len(tjunk) > 0 && c.fresh(tjunk, true, f) {
+		if len(tjunk) > 0 && c.fresh(tjunk, true, pv) {
 			tx = append(tx, tjunk)
 		}
-		if len(tany) > 0 && c.fresh(tany, true, f) {
+		if len(tany) > 0 && c.fresh(tany, true, pv) {
 			ta = append(ta, tany)
 		}
-		if len(rjunk) > 0 && c.fresh(rjunk, false, f) {
+		if len(rjunk) > 0 && c.fresh(rjunk, false, pv) {
 			rj = append(rj, rjunk)
 		}
 		for _, v := range []view{{parts: by}, {parts: tx, text: true}, {parts: ta, text: true, any: true}, {parts: rj, any: true}, {parts: bj, text: true, final: true},
@@ -721,7 +757,7 @@ func (c *closure) step(level []view, depth int) []view {
 				c.stop(exhausted)
 				return nil
 			}
-			v.depth, v.raw = depth, f
+			v.depth, v.raw, v.ns = depth, f, ns
 			out = append(out, v)
 		}
 	}
@@ -794,14 +830,15 @@ var setPool = sync.Pool{New: func() any { return new(stripedSet) }}
 
 var memoPool = sync.Pool{New: func() any { return new(deflateMemo) }}
 
-func (s *scan) hit(p []byte) bool { return s.hitIn(p, false) }
+func (s *scan) hit(p []byte) bool { return s.hitView(p, false, false) }
 
-func (s *scan) hitIn(p []byte, anywhere bool) bool {
+// hitView is the matcher's hitView on p, normalized.
+func (s *scan) hitView(p []byte, anywhere, noShort bool) bool {
 	if isASCIIBytes(p) {
-		return s.m.hitIn(p, anywhere)
+		return s.m.hitView(p, anywhere, noShort)
 	}
 	s.norm = appendNormalized(s.norm[:0], p, s.segs)
-	return s.m.hitIn(s.norm, anywhere)
+	return s.m.hitView(s.norm, anywhere, noShort)
 }
 
 // charge spends n decoded bytes; past the budget the unit is exhausted.
@@ -1226,10 +1263,12 @@ func canonDigits(b []byte) string {
 // or in scientific notation. A spelling of 8 or more characters counts
 // anywhere, a shorter one only as a whole token, which a separator between
 // two digits does not end. An 8-digit piece counts grouped. anywhere is
-// hitIn's: in a reading every span or start offset of which is a candidate
-// (a run decoder's output, a charset reading), a shorter spelling counts
-// anywhere too.
-func (m *matcher) numberHit(n []byte, anywhere bool) bool {
+// hitView's: in a reading every span or start offset of which is a
+// candidate (a run decoder's output, a charset reading), a long value's
+// shorter spelling counts anywhere too. A short value's spelling counts
+// only as a whole token on both sides, and not at all in a no-short view
+// (noShort; contract 2(a), amended 2026-11-27).
+func (m *matcher) numberHit(n []byte, anywhere, noShort bool) bool {
 	var dig []byte
 	var pos []int
 	for i := 0; i < len(n); {
@@ -1248,11 +1287,11 @@ func (m *matcher) numberHit(n []byte, anywhere bool) bool {
 			}
 			i++
 		}
-		if m.groupedHit(n, start, i, dig, pos, anywhere) {
+		if m.groupedHit(n, start, i, dig, pos, anywhere, noShort) {
 			return true
 		}
 	}
-	return m.sciHit(n, anywhere)
+	return m.sciHit(n, anywhere, noShort)
 }
 
 func isDigit(c byte) bool { return c >= '0' && c <= '9' }
@@ -1264,7 +1303,7 @@ func isAlnum(c byte) bool {
 func isGroupSep(c byte) bool { return c == ',' || c == '.' || c == '_' || c == '\'' || c == ' ' }
 
 // groupedHit reads one run, n[start:end], whose digits are dig at pos.
-func (m *matcher) groupedHit(n []byte, start, end int, dig []byte, pos []int, anywhere bool) bool {
+func (m *matcher) groupedHit(n []byte, start, end int, dig []byte, pos []int, anywhere, noShort bool) bool {
 	plus := start > 0 && n[start-1] == '+'
 	if end-start > len(dig) || plus {
 		// Grouped: its 8-digit pieces are pieces of a held value (plain
@@ -1275,10 +1314,18 @@ func (m *matcher) groupedHit(n []byte, start, end int, dig []byte, pos []int, an
 			}
 		}
 	}
-	// The left side is a view boundary at every offset (tokenAt): a
-	// spelling may start at any digit of the run and must end it.
+	// A long value's spelling may start at any digit of the run (its left
+	// side was a view boundary at every offset before the 2026-11-27
+	// amendment, which leaves long values as they were) and must end it. A
+	// short value's must also start the run, its leading zeros and plus
+	// sign included, after the start of the text or a character that is not
+	// a letter or digit (tokenAt). A plus sign before the run is such a
+	// character, and the letters and digits on both sides are Unicode ones.
 	token := end == len(n) || !isAlnum(n[end])
-	for h := range m.numWhole {
+	for h, short := range m.numWhole {
+		if short && noShort {
+			continue
+		}
 		for off := 0; ; {
 			k := bytes.Index(dig[off:], []byte(h))
 			if k < 0 {
@@ -1294,7 +1341,8 @@ func (m *matcher) groupedHit(n []byte, start, end int, dig []byte, pos []int, an
 			if z == 0 && plus {
 				lo--
 			}
-			if hi-lo >= pieceLen || anywhere || token && k+len(h) == len(dig) {
+			left := !short || z == 0 && !wordBefore(n[:pos[0]]) && !wordAfter(n[end:])
+			if hi-lo >= pieceLen || anywhere || token && left && k+len(h) == len(dig) {
 				return true
 			}
 		}
@@ -1306,7 +1354,7 @@ func (m *matcher) groupedHit(n []byte, start, end int, dig []byte, pos []int, an
 // mantissa of digits with at most one decimal point, e or E, and an
 // exponent with or without a sign, whose value is exactly that integer. A
 // spelling is any substring of n that reads so, judged by its own length.
-func (m *matcher) sciHit(n []byte, anywhere bool) bool {
+func (m *matcher) sciHit(n []byte, anywhere, noShort bool) bool {
 	var dig []byte
 	var pos []int
 	for q := 1; q < len(n); q++ {
@@ -1348,28 +1396,54 @@ func (m *matcher) sciHit(n []byte, anywhere bool) bool {
 		}
 		// pm0 is the spelling's start, a leading plus sign included: the
 		// plus is part of the spelling, so it counts toward its length
-		// (contract 3, Numbers: "a leading plus sign"). Its left side is a
-		// view boundary at every offset (tokenAt).
+		// (contract 3, Numbers: "a leading plus sign"). A long value's
+		// spelling may start at any offset; a short value's needs a left
+		// boundary (left, below).
 		pm0 := m0
 		if m0 > 0 && n[m0-1] == '+' {
 			pm0 = m0 - 1
 		}
+		// left reports whether a short value's spelling from lo is a whole
+		// token (tokenAt): no letter or digit, Unicode ones included, before
+		// it or after the exponent. A leading plus sign is optional, so a
+		// spelling from one is bounded by the plus itself. The mantissa holds
+		// only digits and a point, so a start inside it follows a digit
+		// (refused) or the point (a boundary). A long value's spelling needs
+		// neither side.
+		left := func(lo int, short bool) bool {
+			return !short || (n[lo] == '+' || !wordBefore(n[:lo])) && !wordAfter(n[x1:])
+		}
 		// spelled reports whether the mantissa from lo, with the exponent
 		// v, spells a held value at its own length.
-		spelled := func(lo, v int) bool {
+		spelled := func(lo, v int, short bool) bool {
 			a, t := max(v, -v), -1
 			for j, val := x0, 0; j < x1 && val <= a; j++ {
 				if val = min(val*10+int(n[j]-'0'), 1<<30); val == a && (v == 0 || neg == (v < 0)) {
 					t = j + 1
 				}
 			}
-			return t > 0 && (t-lo >= pieceLen || anywhere || t == x1 && (x1 == len(n) || !isAlnum(n[x1])))
+			return t > 0 && (t-lo >= pieceLen || anywhere || t == x1 && (x1 == len(n) || !isAlnum(n[x1])) && left(lo, short))
 		}
-		for h := range m.numWhole {
+		for h, short := range m.numWhole {
+			if short && noShort {
+				continue
+			}
 			core := strings.TrimRight(h, "0")
+			// A spelling's value depends only on whether it keeps the point,
+			// not on how many leading zeros it starts with, so the starts
+			// worth trying are the lowest one (after the last digit that is
+			// not 0 before the value, or the widest start), the point itself,
+			// and the digit after the point: no other start is longer or has
+			// a boundary before it (a zero precedes it).
 			if core == "" { // zero: every all-zero mantissa, any exponent
-				if e == 0 && (x1-pm0 >= pieceLen || anywhere || x1 == len(n) || !isAlnum(n[x1])) {
-					return true
+				low := pm0
+				if e > 0 {
+					low = pos[e-1] + 1
+				}
+				for _, lo := range []int{low, pt, pt + 1} {
+					if lo >= low && lo <= pos[len(dig)-1] && (x1-lo >= pieceLen || anywhere || (x1 == len(n) || !isAlnum(n[x1])) && left(lo, short)) {
+						return true
+					}
 				}
 				continue
 			}
@@ -1381,20 +1455,20 @@ func (m *matcher) sciHit(n []byte, anywhere bool) bool {
 			for z > 0 && dig[z-1] == '0' {
 				z--
 			}
-			lo := pos[z]
-			if z == 0 {
-				lo = pm0 // the widest start: a leading plus and point too
+			low := pm0 // the widest start: a leading plus and point too
+			if z > 0 {
+				low = pos[z-1] + 1
 			}
 			zh := len(h) - len(core)
 			// Keeping the point: the mantissa starts at or before it.
-			if pt >= 0 && lo <= pt && spelled(lo, zh+e-before) {
+			if pt >= 0 && low <= pt && (spelled(low, zh+e-before, short) || spelled(pt, zh+e-before, short)) {
 				return true
 			}
 			// Without one: it starts after the point, or there is none.
-			if pt < 0 && spelled(lo, zh+e-len(dig)) {
+			if pt < 0 && spelled(low, zh+e-len(dig), short) {
 				return true
 			}
-			if pt >= 0 && before <= c && spelled(pos[max(z, before)], zh+e-len(dig)) {
+			if pt >= 0 && before <= c && spelled(max(low, pt+1), zh+e-len(dig), short) {
 				return true
 			}
 		}

@@ -7,4 +7,4 @@ package credkit
 // each its name, a NUL, its bytes and a NUL. vendor_credkit.py writes it
 // (TestKitcpuSourceHash checks it), so a table built before an edit to the
 // kit is ignored.
-const kitSourceHash = "fb914e4e8e73acd4eed2f1ee6dad9b1976c75718fea1f925c8f4d552c89ed0e7"
+const kitSourceHash = "8292c8cbbcda45e5c5a1a4a02516196f8a6f848b5d3f6a7a9703cbfb86d5310d"

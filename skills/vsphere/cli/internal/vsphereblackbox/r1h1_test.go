@@ -98,7 +98,11 @@ func z85Encode(b []byte) string {
 
 // Codex's input: VSPHERE_PASSWORD='Ab!9xQ', a successful login, and an
 // inventory whose VM name is ASCII85 of "aAb!9xQxyz"; plus the same short
-// password embedded mid-stream in the other encodings.
+// password embedded mid-stream in the other encodings. Each is a run-decoder
+// reading, where a value under 8 characters is no longer compared, so the
+// inventory prints: contract 2(a), section 6 item 11. The same inventory with
+// one more VM named the password itself is still withheld, so the password is
+// held and the raw short value never prints.
 func TestR1H1ShortValueEmbeddedInEncodedInventory(t *testing.T) {
 	t.Parallel()
 	const pw = "Ab!9xQ"
@@ -117,6 +121,7 @@ func TestR1H1ShortValueEmbeddedInEncodedInventory(t *testing.T) {
 	}
 	var mu sync.Mutex
 	var listed bool
+	var served []string
 	srv := tlsServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -130,9 +135,10 @@ func TestR1H1ShortValueEmbeddedInEncodedInventory(t *testing.T) {
 		case r.URL.Path == "/api/vcenter/vm":
 			mu.Lock()
 			listed = true
+			inventory := served
 			mu.Unlock()
 			var recs []string
-			for i, n := range names {
+			for i, n := range inventory {
 				v, _ := json.Marshal(n)
 				recs = append(recs, fmt.Sprintf(`{"vm":"vm-%d","name":%s,"power_state":"POWERED_OFF"}`, i+1, v))
 			}
@@ -145,22 +151,36 @@ func TestR1H1ShortValueEmbeddedInEncodedInventory(t *testing.T) {
 	if err := os.WriteFile(ca, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw}), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := t.TempDir()
-	got := runWith(t, cleanEnv(h, "VSPHERE_BASE_URL="+srv.URL, "VSPHERE_CA_CERT="+ca, "VSPHERE_USERNAME=ro@vsphere.local", "VSPHERE_PASSWORD="+pw),
-		"vm", "list", "--data-source", "live", "--agent")
-	mu.Lock()
-	ran := listed
-	mu.Unlock()
-	if !ran || !strings.Contains(got, withheldNotice) {
-		t.Fatalf("the inventory was not listed and withheld; the test did not run:\n%s", got)
+	list := func(inventory []string) string {
+		mu.Lock()
+		listed, served = false, inventory
+		mu.Unlock()
+		h := t.TempDir()
+		got := runWith(t, cleanEnv(h, "VSPHERE_BASE_URL="+srv.URL, "VSPHERE_CA_CERT="+ca, "VSPHERE_USERNAME=ro@vsphere.local", "VSPHERE_PASSWORD="+pw),
+			"vm", "list", "--data-source", "live", "--agent")
+		mu.Lock()
+		ran := listed
+		mu.Unlock()
+		if !ran {
+			t.Fatalf("the inventory was not listed; the test did not run:\n%s", got)
+		}
+		if strings.Contains(got, pw) {
+			t.Errorf("output repeats the password %q:\n%s", pw, got)
+		}
+		return got
+	}
+	got := list(names)
+	if strings.Contains(got, withheldNotice) || !strings.Contains(got, "POWERED_OFF") {
+		t.Errorf("an inventory carrying the password only in run-decoder readings should print whole (contract 2(a), section 6 item 11):\n%s", got)
 	}
 	for _, n := range names {
 		escaped, _ := json.Marshal(n)
-		plain := strings.NewReplacer(`\u003c`, "<", `\u003e`, ">", `\u0026`, "&").Replace(string(escaped))
-		for _, form := range []string{n, strings.Trim(string(escaped), `"`), strings.Trim(plain, `"`)} {
-			if strings.Contains(got, form) {
-				t.Errorf("output repeats the encoded password %q as %q:\n%s", n, form, got)
-			}
+		if !strings.Contains(got, strings.Trim(string(escaped), `"`)) {
+			t.Errorf("the VM named %q is missing from the printed inventory:\n%s", n, got)
 		}
+	}
+	got = list(append(append([]string{}, names...), pw))
+	if !strings.Contains(got, withheldNotice) {
+		t.Errorf("an inventory naming a VM after the password was not withheld:\n%s", got)
 	}
 }

@@ -26,6 +26,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // holderBaseToken is the API token every case sends so a request goes out;
@@ -115,6 +116,12 @@ func holderSources() []holderSource {
 func holderForms(values []string) []string {
 	var out []string
 	for _, v := range values {
+		if utf8.RuneCountInString(v) < 8 {
+			// A value under 8 characters is not compared in a run decoder's view
+			// (contract 2(a), section 6 item 11): its base64 and hex echoes may print.
+			out = append(out, v)
+			continue
+		}
 		out = append(out, v,
 			base64.StdEncoding.EncodeToString([]byte(v)),
 			base64.RawStdEncoding.EncodeToString([]byte(v)),
@@ -332,8 +339,8 @@ func assertHolderWithheld(t *testing.T, where, out string, values []string) {
 // One credential per source, each echoed back by the vendor as written, base64
 // and hex, through fresh CLI processes (raw query's error, tickets list's
 // successful output, sync into the store) and a fresh MCP server (the
-// mirrored raw_query and the in-process tickets_list). No form is shown, at
-// any length, and the whole run is grepped: every line either binary wrote
+// mirrored raw_query and the in-process tickets_list). No form is shown (a
+// value under 8 characters: as written, holderForms), and the whole run is grepped: every line either binary wrote
 // and every file the run left in the sandbox but the operator's own
 // credential files.
 func TestEveryCredentialSourceIsWithheldFromCLIAndMCPOutput(t *testing.T) {

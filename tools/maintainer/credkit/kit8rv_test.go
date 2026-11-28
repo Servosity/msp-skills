@@ -47,15 +47,26 @@ func TestKit8rvPiecesCountedAsHeld(t *testing.T) {
 
 // Class decoder-output-kind-dedupe (contract 3 Base64, ninth reading
 // bound): an output queued by one decoder is not skipped when another
-// decoder queues the same bytes to be read another way.
+// decoder queues the same bytes to be read another way. Contract 2(a),
+// amended 2026-11-27: a short value is not compared in a run decoder's
+// view, so Codex's abc input is clean now; a long digit-only value's short
+// spelling (00004711 as 4711) still counts anywhere in base64 output.
 func TestKit8rvDedupeKeepsTheReadingKind(t *testing.T) {
 	resetForTest(Declarations{})
 	Hold("minted:session", "abc")
-	if !withheld([]byte("\x00%61bcx\x00YWJjeA==\x00")) { // Codex's input
-		t.Error("base64 output seen first as a percent decoding was not read with a short value anywhere")
+	if withheld([]byte("\x00%61bcx\x00YWJjeA==\x00")) { // Codex's input
+		t.Error("a short value withheld through base64 (contract 2(a))")
 	}
 	if withheld([]byte("\x00%61bcx\x00")) {
 		t.Error("over-withholding: abcx from percent alone is no whole token of abc")
+	}
+	resetForTest(Declarations{})
+	Hold("minted:session", "00004711")
+	if !withheld([]byte("\x00%34711x\x00NDcxMXg=\x00")) {
+		t.Error("base64 output seen first as a percent decoding was not read with a short spelling anywhere")
+	}
+	if withheld([]byte("\x00%34711x\x00")) {
+		t.Error("over-withholding: 4711x from percent alone is no whole-token spelling of 00004711")
 	}
 }
 

@@ -68,30 +68,33 @@ func TestKit5rvFileAppendStream(t *testing.T) {
 }
 
 // Class charset-start-boundary-loss (contract 2(a), 3 Candidates and
-// Charsets): UTF-8 and the charsets that read ASCII as itself start a
-// reading at every byte offset, so a short value's left side is always a
-// view boundary: it counts as a whole token when its right side is one.
-// A short value with a letter or digit after it is still inside a word.
+// Charsets). Before the 2026-11-27 amendment a charset reading's start at
+// every byte offset made a short value's left side always a boundary. Now
+// a short value is compared only in the raw unit and substitution views,
+// as a whole token on both sides: a letter or digit on either side puts it
+// inside a word, and a charset reading's start is no boundary.
 func TestKit5rvShortValueLeftEdge(t *testing.T) {
 	holding(t, "abc")
-	for _, u := range []string{"fabc", "x.fabc", "éabc", "fabc\n", "1abc!"} {
+	for _, u := range []string{".abc", "x.abc", "abc\n", "1 abc!"} {
 		if !leaks(u) {
-			t.Errorf("%q: a reading from the offset of abc releases it", u)
+			t.Errorf("%q: abc as a whole token released", u)
 		}
 	}
-	for _, u := range []string{"fabcd", "xabcx", "abc1"} {
+	for _, u := range []string{"fabc", "x.fabc", "éabc", "fabc\n", "1abc!", "fabcd", "xabcx", "abc1"} {
 		if leaks(u) {
-			t.Errorf("%q: abc with a word character after it withheld", u)
+			t.Errorf("%q: abc with a word character beside it withheld", u)
 		}
 	}
 	holding(t, "4711")
-	for _, u := range []string{"id 94711", "94,711", "x4711", "+94711"} {
+	for _, u := range []string{"id 4711", "x 4,711", "+4711"} {
 		if !leaks(u) {
-			t.Errorf("%q: a reading from the offset of 4711 releases it", u)
+			t.Errorf("%q: 4711 as a whole token released", u)
 		}
 	}
-	if leaks("id 47110") {
-		t.Error("4711 with a digit after it withheld")
+	for _, u := range []string{"id 94711", "94,711", "x4711", "+94711", "id 47110"} {
+		if leaks(u) {
+			t.Errorf("%q: 4711 with a letter or digit beside it withheld", u)
+		}
 	}
 }
 

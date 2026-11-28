@@ -6,11 +6,14 @@ package client
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"kaseya-vsa-pp-cli/internal/credkit"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -260,6 +263,18 @@ func chromeProxyCONNECT(ctx context.Context, conn net.Conn, addr string, proxyUR
 	if user := proxyURL.User; user != nil {
 		password, _ := user.Password()
 		connect.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(user.Username()+":"+password)))
+	}
+	// The kit judges this CONNECT as a proxy request, as it judges the one Go
+	// writes (contract 2(c)): over a plain-http proxy no held value goes,
+	// the proxy's own credentials included. OutboundGuard below writes it and
+	// re-judges at the write; the proxy credentials it may let through over
+	// plain http are held from startup, so this verdict cannot go stale.
+	var unit bytes.Buffer
+	if err := connect.Write(&unit); err != nil {
+		return nil, err
+	}
+	if err := credkit.ProxyWrite(io.Discard, proxyURL, unit.Bytes()); err != nil {
+		return nil, err
 	}
 	br := bufio.NewReader(conn)
 	resp, err := OutboundGuard(chromeConnectExchange{conn, br}).RoundTrip(connect.WithContext(ctx))

@@ -43,7 +43,14 @@ func nb2ROT13(s string) string {
 }
 
 func nb2Forms(v string) map[string]string {
-	return map[string]string{"raw": v, "rot13": nb2ROT13(v), "base64": base64.StdEncoding.EncodeToString([]byte(v))}
+	forms := map[string]string{"raw": v, "rot13": nb2ROT13(v)}
+	// Contract 2(a): a value under 8 characters is matched in the raw and
+	// substitution-decoded views only, so its base64 echo is out of scope
+	// (section 6 item 11).
+	if len(v) >= 8 {
+		forms["base64"] = base64.StdEncoding.EncodeToString([]byte(v))
+	}
+	return forms
 }
 
 // nb2Build builds both binaries once per test run.
