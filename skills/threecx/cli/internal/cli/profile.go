@@ -60,7 +60,15 @@ func loadProfileStore() (*profileStore, error) {
 	if legacyErr != nil || legacy == p {
 		legacy = ""
 	}
-	data, sourcePath, err := cliutil.ReadFileWithLegacyFallback(p, legacy)
+	// Hand-fix (handfixes.json loose-profile-store-refused): the permission
+	// verdict and the bytes come from one open file.
+	opened, err := cliutil.ReadOpenedConfig(p)
+	sourcePath := p
+	if os.IsNotExist(err) && legacy != "" {
+		opened, err = cliutil.ReadOpenedConfig(legacy)
+		sourcePath = legacy
+	}
+	data := opened.Data
 	if err != nil {
 		if os.IsNotExist(err) || sourcePath == legacy {
 			return &profileStore{Profiles: map[string]Profile{}}, nil
@@ -68,6 +76,12 @@ func loadProfileStore() (*profileStore, error) {
 		return nil, fmt.Errorf("reading profiles: %w", err)
 	}
 	cliutil.HoldProfileStore(data) // Hand-fix (handfixes.json credkit-wiring): held where read, whichever home
+	// Hand-fix (handfixes.json loose-profile-store-refused): a run profile sets root
+	// flags such as --ca-cert, --tls-server-name and --deliver, so a store other
+	// users can change is not applied.
+	if opened.PermErr != nil {
+		return nil, fmt.Errorf("refusing profiles, other users can change them: %w", opened.PermErr)
+	}
 	var s profileStore
 	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, fmt.Errorf("parsing profiles: %w", err)

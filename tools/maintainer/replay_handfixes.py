@@ -2233,8 +2233,113 @@ def r_search_desc(p: Plan, hid: str, entry: dict) -> dict:
     return {}
 
 
+# A run profile sets root flags (--ca-cert, --tls-server-name, --deliver, ...),
+# and the generated profile store reads profiles.json with no permission check,
+# so a store other local users can change was applied. The recipe reads it
+# through cliutil.ReadOpenedConfig (the verdict and the bytes share one open
+# file, as config.go does) and refuses a store that fails it. It knows the
+# ReadFileWithLegacyFallback shape press 4.27 to 4.35 generates and refuses any
+# other; every check runs before the first write.
+LPS_REL = "cli/internal/cli/profile.go"
+LPS_TEST = "cli/internal/cli/loose_profile_store_test.go"
+LPS_SCOPE = "loadProfileStore"
+LPS_READ = "\tdata, sourcePath, err := cliutil.ReadFileWithLegacyFallback(p, legacy)\n"
+LPS_OPEN = "opened, err := cliutil.ReadOpenedConfig(p)"
+LPS_OPENED = ("\t// {tag}: the permission\n"
+              "\t// verdict and the bytes come from one open file.\n"
+              "\t" + LPS_OPEN + "\n"
+              "\tsourcePath := p\n"
+              "\tif os.IsNotExist(err) && legacy != \"\" {\n"
+              "\t\topened, err = cliutil.ReadOpenedConfig(legacy)\n"
+              "\t\tsourcePath = legacy\n"
+              "\t}\n"
+              "\tdata := opened.Data\n")
+LPS_DECL = "\tvar s profileStore\n"
+LPS_GUARD = "if opened.PermErr != nil {"
+LPS_REFUSE = ("\t// {tag}: a run profile sets root\n"
+              "\t// flags such as --ca-cert, --tls-server-name and --deliver, so a store other\n"
+              "\t// users can change is not applied.\n"
+              "\t" + LPS_GUARD + "\n"
+              "\t\treturn nil, fmt.Errorf(\"refusing profiles, other users can change them: %w\", opened.PermErr)\n"
+              "\t}\n" + LPS_DECL)
+
+
+def r_loose_profile_store(p: Plan, hid: str, entry: dict) -> dict:
+    """Both edits are built in memory, checked against executable code, and
+    written together, so a refused connector gets nothing. An applied store is
+    accepted only in the exact shape this recipe writes."""
+    site = "loose-profile-store"
+    s = p.read(LPS_REL)
+    if s is None:
+        p.hand(site, f"{LPS_REL}: missing, so the profile store cannot be judged")
+        return {}
+    spans = func_spans(s, LPS_SCOPE)
+    if len(spans) != 1:
+        p.hand(site, f"{LPS_REL}: {LPS_SCOPE} is not one top-level function ({len(spans)} found)")
+        return {}
+    a, b = spans[0]
+    body = s[a:b]
+    code = code_only(LPS_REL, body)
+    opened_block, refuse_block = LPS_OPENED.replace("{tag}", tag(hid)), LPS_REFUSE.replace("{tag}", tag(hid))
+    reads = code.count("ReadFileWithLegacyFallback(") + code.count("os.ReadFile(")
+    if LPS_OPEN in code or LPS_GUARD in code or "ReadOpenedConfig(" in code:
+        # opened: the two reads, opened.Data, the guard and its error.
+        applied = (body.count(opened_block) == 1 and body.count(refuse_block) == 1 and reads == 0
+                   and code.count("ReadOpenedConfig(") == 2 and len(re.findall(r"\bopened\b", code)) == 5
+                   and body.index(opened_block) < body.index(refuse_block))
+        if not applied:
+            p.hand(site, f"{LPS_REL}: {LPS_SCOPE} reads through ReadOpenedConfig in a shape this recipe did not "
+                         f"write, so it cannot tell the refusal judges the bytes parsed; check it by hand")
+            return {}
+        new_body = body
+    else:
+        if reads != 1 or code.count(LPS_READ) != 1 or code.count(LPS_DECL) != 1 or re.search(r"\bopened\b", code) \
+                or body.count(LPS_READ) != 1 or body.count(LPS_DECL) != 1:
+            p.hand(site, f"{LPS_REL}: {LPS_SCOPE} does not read the store once with ReadFileWithLegacyFallback "
+                         f"and declare one profileStore, the shape this recipe knows; refuse a loose store by hand")
+            return {}
+        new_body = body.replace(LPS_READ, opened_block, 1).replace(LPS_DECL, refuse_block, 1)
+        new_code = code_only(LPS_REL, new_body)
+        if new_code.count(LPS_OPEN) != 1 or new_code.count(LPS_GUARD) != 1:
+            p.hand(site, f"{LPS_REL}: {LPS_SCOPE}: an anchor sits in a comment, so the edit would not wire it")
+            return {}
+    cliutil_dir = p.cli / "internal" / "cliutil"
+    if not any("func ReadOpenedConfig(path string) (OpenedConfig, error) {" in (p.read(f"cli/internal/cliutil/{f.name}") or "")
+               for f in sorted(cliutil_dir.glob("*.go"))):
+        p.hand(site, "cli/internal/cliutil: no ReadOpenedConfig, so the store cannot be judged on the file it is "
+                     "read from; this cliutil generation needs the fix by hand")
+        return {}
+    if not p.module:
+        p.hand(site, "cli/go.mod: no module path, so the regression test cannot import cliutil")
+        return {}
+    want = render("loose_profile_store_test.go.tmpl", MODULE=p.module)
+    cur = p.read(LPS_TEST)
+    if cur is not None and cur != want:
+        p.hand(site, f"{LPS_TEST}: differs from tools/maintainer/handfix_replay/loose_profile_store_test.go.tmpl; "
+                     f"merge the difference into the template or wire the fix by hand")
+        return {}
+    clash = [f"cli/internal/cli/{f.name}" for f in sorted((p.cli / "internal" / "cli").glob("*.go"))
+             if f"cli/internal/cli/{f.name}" != LPS_TEST
+             and re.search(r"\bTestLooseRunProfileStoreIsRefused\b",
+                           code_only(f"cli/internal/cli/{f.name}", p.read(f"cli/internal/cli/{f.name}") or ""))]
+    if clash:
+        p.hand(site, f"cli/internal/cli: {', '.join(clash)} already names TestLooseRunProfileStoreIsRefused")
+        return {}
+    if cur is None:
+        p.write(LPS_TEST, want, "the loose profile store test")
+    if new_body != body:
+        p.write(LPS_REL, s[:a] + new_body + s[b:],
+                "the profile store is read through ReadOpenedConfig and a loose one is refused")
+    p.add_tests_from(LPS_TEST)
+    p.pin(hid, LPS_REL, LPS_OPEN)
+    p.pin(hid, LPS_REL, LPS_GUARD)
+    p.pin(hid, LPS_TEST, "func TestLooseRunProfileStoreIsRefused(t *testing.T) {")
+    return {}
+
+
 RECIPES = {
     "derive-lock-canonical": r_derive_lock,
+    "loose-profile-store": r_loose_profile_store,
     "token-host-compare": r_token_host,
     "auth-dry-run": r_auth_dry_run,
     "doctor-verdict": r_doctor,
