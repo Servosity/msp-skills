@@ -526,6 +526,7 @@ def run(m) -> int:  # m: the replay_handfixes module
             m.resolved_version, m.raise_floor = real
 
     sync_writer_cases(m, expect)
+    loose_profile_cases(m, expect)
     sync_honesty_cases(m, expect)
     search_desc_cases(m, expect)
     read_only_switch_cases(m, expect)
@@ -916,6 +917,128 @@ def sync_source(shape: str) -> str:
         "twice": SYNC_DECL + SYNC_DECL.replace(":=", "="),
         "other-machine": SYNC_DECL + "\t\t\tif wantsMachineOutput(flags) {\n\t\t\t\tsyncEventWriter = cmd.ErrOrStderr()\n\t\t\t}\n",
     }[shape] + SYNC_TAIL
+
+
+# --------------------------------------------------------------------------- #
+# loose-profile-store-refused: the generated shape, re-runs, reprints, fail-closed.
+# --------------------------------------------------------------------------- #
+
+LPS_SRC = ("package cli\n\nfunc loadProfileStore() (*profileStore, error) {\n"
+           "\tp, err := profileStorePath()\n\tif err != nil {\n\t\treturn nil, err\n\t}\n"
+           "\tlegacy := \"\"\n"
+           "\tdata, sourcePath, err := cliutil.ReadFileWithLegacyFallback(p, legacy)\n"
+           "\tif err != nil {\n\t\tif os.IsNotExist(err) || sourcePath == legacy {\n"
+           "\t\t\treturn &profileStore{Profiles: map[string]Profile{}}, nil\n\t\t}\n"
+           "\t\treturn nil, fmt.Errorf(\"reading profiles: %w\", err)\n\t}\n"
+           "\tvar s profileStore\n\tif err := json.Unmarshal(data, &s); err != nil {\n\t\treturn nil, err\n\t}\n"
+           "\treturn &s, nil\n}\n")
+LPS_CLIUTIL = "package cliutil\n\nfunc ReadOpenedConfig(path string) (OpenedConfig, error) {\n\treturn OpenedConfig{}, nil\n}\n"
+
+
+def loose_profile_cases(m, expect) -> None:
+    hid = "loose-profile-store-refused"
+    real = json.loads((HERE / "fleet_handfixes.json").read_text(encoding="utf-8"))["handfixes"][hid]
+    reg = {"handfixes": {hid: real}}
+    rel, rel_test = m.LPS_REL, m.LPS_TEST
+    asserts = [{"file": rel, "contains": m.LPS_OPEN, "min_count": 1, "code_only": True},
+               {"file": rel, "contains": m.LPS_GUARD, "min_count": 1, "code_only": True},
+               {"file": rel_test, "contains": "func TestLooseRunProfileStoreIsRefused(t *testing.T) {",
+                "min_count": 1, "code_only": True}]
+    with tempfile.TemporaryDirectory(prefix="replay-loose-profile-") as td:
+        root = Path(td)
+        tools = root / "tools" / "maintainer"
+        tools.mkdir(parents=True)
+        shutil.copyfile(HERE / "check_handfixes.py", tools / "check_handfixes.py")
+        (tools / "fleet_handfixes.json").write_text(json.dumps(reg), encoding="utf-8")
+        sink: list[str] = []
+
+        def prove(r, slug, full, p, pkgs):
+            return m.run_proofs(r, slug, False, p, pkgs)  # the REAL ledger check
+
+        def connector(slug: str, src: str | None = LPS_SRC, cliutil: bool = True) -> Path:
+            skill = root / "skills" / slug
+            if skill.exists():
+                shutil.rmtree(skill)
+            if src is not None:
+                w(skill / rel, GEN + src)
+            if cliutil:
+                w(skill / "cli/internal/cliutil/creds_perms_unix.go", GEN + LPS_CLIUTIL)
+            w(skill / "cli/go.mod", f"module {slug}-pp-cli\n\ngo 1.24\n")
+            w(skill / "handfixes.json", json.dumps({"slug": slug, "handfixes": [
+                {"id": hid, "asserts": asserts}]}, indent=1) + "\n")
+            return skill
+
+        def apply(slug: str, check: bool = False) -> int:
+            sink.clear()
+            return m.run_slug(root, slug, check=check, out=sink.append, prove=prove, registry=reg)
+
+        def snap(skill: Path) -> dict:
+            return {q: q.read_bytes() for q in skill.rglob("*") if q.is_file()}
+
+        skill = connector("acme")
+        rc = apply("acme")
+        text = (skill / rel).read_text()
+        expect(rc == 0 and m.LPS_OPENED.replace("{tag}", m.tag(hid)) in text
+               and m.LPS_REFUSE.replace("{tag}", m.tag(hid)) in text and "ReadFileWithLegacyFallback" not in text
+               and text.index(m.LPS_GUARD) < text.index("json.Unmarshal"),
+               "the store is read through ReadOpenedConfig and refused before it is parsed: "
+               + " | ".join(x for x in sink if "NEEDS" in x or "FAIL" in x)[:400])
+        expect((skill / rel_test).read_text() == m.render("loose_profile_store_test.go.tmpl", MODULE="acme-pp-cli"),
+               "the regression test is the canonical template")
+        before = snap(skill)
+        expect(apply("acme") == 0 and snap(skill) == before, "a second run changes nothing")
+
+        # A reprint regenerates profile.go and may drop the test: both come back.
+        w(skill / rel, GEN + LPS_SRC)
+        (skill / rel_test).unlink()
+        expect(apply("acme") == 0 and m.LPS_GUARD in (skill / rel).read_text() and (skill / rel_test).is_file(),
+               "after a reprint the recorded entry re-applies the fix and restores the test")
+
+        # Fail closed, writing nothing.
+        for why, src, cliutil, needle in (
+                ("no ReadOpenedConfig in cliutil", LPS_SRC, False, "no ReadOpenedConfig"),
+                ("the older os.ReadFile shape", LPS_SRC.replace(
+                    "cliutil.ReadFileWithLegacyFallback(p, legacy)", "os.ReadFile(p), p, nil"), True, "the shape this recipe knows"),
+                ("the store read twice", LPS_SRC.replace(
+                    "\tif err != nil {\n\t\tif os.IsNotExist", m.LPS_READ.replace(":=", "=") + "\tif err != nil {\n\t\tif os.IsNotExist", 1),
+                 True, "the shape this recipe knows"),
+                ("no loadProfileStore", LPS_SRC.replace("func loadProfileStore(", "func loadStore("), True,
+                 "is not one top-level function")):
+            skill = connector("odd", src, cliutil)
+            before = snap(skill)
+            rc = apply("odd")
+            expect(rc == 1 and any("NEEDS HAND WIRING [loose-profile-store]" in x and needle in x for x in sink)
+                   and snap(skill) == before, f"{why}: named for a person, nothing written")
+        # Codex R1 inputs: a ReadOpenedConfig reader the recipe did not write
+        # (the guard judges the primary, the bytes come from the legacy file),
+        # and a declaration anchor that only appears inside a comment.
+        foreign = LPS_SRC.replace(m.LPS_READ,
+            "\topened, err := cliutil.ReadOpenedConfig(p)\n\tfallback, fallbackErr := cliutil.ReadOpenedConfig(legacy)\n"
+            "\tdata, err, sourcePath := fallback.Data, fallbackErr, legacy\n\t_ = opened\n").replace(
+            m.LPS_DECL, "\tif opened.PermErr != nil {\n\t\treturn nil, opened.PermErr\n\t}\n" + m.LPS_DECL)
+        commented = LPS_SRC.replace(m.LPS_DECL, "\t/*\n" + m.LPS_DECL + "\t*/\n\tvar s = profileStore{}\n")
+        for why, src, needle in (("a ReadOpenedConfig reader of another shape", foreign, "did not write"),
+                                 ("the declaration anchor only in a comment", commented, "the shape this recipe knows")):
+            skill = connector("odd", src)
+            before = snap(skill)
+            expect(apply("odd") == 1 and any("NEEDS HAND WIRING [loose-profile-store]" in x and needle in x for x in sink)
+                   and snap(skill) == before, f"{why}: named for a person, nothing written")
+        skill = connector("odd")
+        w(skill / rel_test, "package cli\n")
+        before = snap(skill)
+        expect(apply("odd") == 1 and any("differs from tools/maintainer/handfix_replay" in x for x in sink)
+               and snap(skill) == before, "a test that drifted from its template is named, profile.go left as it was")
+        skill = connector("odd")
+        w(skill / "cli/internal/cli/x_test.go", "package cli\n\nfunc TestLooseRunProfileStoreIsRefused(t *testing.T) {}\n")
+        before = snap(skill)
+        expect(apply("odd") == 1 and any("already names TestLooseRunProfileStoreIsRefused" in x for x in sink)
+               and snap(skill) == before, "a package that already declares the test's name is named")
+
+        # The real ledger check sees the refusal removed by hand.
+        skill = connector("acme")
+        apply("acme")
+        w(skill / rel, (skill / rel).read_text().replace(m.LPS_GUARD, "if false {"))
+        expect(apply("acme", check=True) == 1, "a refusal removed by hand is caught")
 
 
 def sync_writer_cases(m, expect) -> None:

@@ -2189,6 +2189,34 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "loose-profile-store-refused",
+   "class": "credential-sent-to-another-host",
+   "summary": "A profiles.json other users can change is refused, not applied: --profile would otherwise set root flags such as --ca-cert, --tls-server-name and --deliver from it",
+   "why": "The generated loadProfileStore read the store with no permission check while config.go refuses a loose config's TLS settings and credentials. A run profile overlays root flags, so another local user who could write the store could point the token's TLS trust at their own CA or send output to their webhook. The store is now read through cliutil.ReadOpenedConfig (verdict and bytes from one open file) and refused when it fails. TestLooseRunProfileStoreIsRefused fails with the press code restored. tools/maintainer/replay_handfixes.py re-applies it after a reprint (fleet_handfixes.json loose-profile-store-refused).",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press: the profile store should be read and judged like the config file (upstream note, not filed)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "opened, err := cliutil.ReadOpenedConfig(p)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if opened.PermErr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/loose_profile_store_test.go",
+     "contains": "func TestLooseRunProfileStoreIsRefused(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [

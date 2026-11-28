@@ -618,6 +618,14 @@
    "keep_manual": {
     "quotewerks": "Its own hand-fix mcp-read-only-drops-endpoint-writes drops the endpoint-mirror tools before the Cobra-tree mirror and keeps the previewing typed writes listed on purpose (the mirror refuses --confirm); a person reconciles it with this id."
    }
+  },
+  "loose-profile-store-refused": {
+   "verdict": "replay",
+   "recipe": "loose-profile-store",
+   "reason": "Press 4.27 to 4.35.3 loadProfileStore reads profiles.json with ReadFileWithLegacyFallback and no permission check, while ApplyProfileToFlags overlays its values onto root flags (--ca-cert, --tls-server-name, --deliver among them). A group or world writable store, which config.go would refuse to take TLS settings or credentials from, was applied by --profile: another local user could point the token's TLS trust at their own CA or send command output to their webhook. The recipe reads the store through cliutil.ReadOpenedConfig (verdict and bytes from one open file) and refuses a store that fails it. Not adopted: 12 connectors print the same profile.go on a cliutil generation without ReadOpenedConfig (ReadConfigTrust or no loose-file reader), which this recipe cannot wire; they are tracked separately.",
+   "proof": "TestLooseRunProfileStoreIsRefused (owner-only store applies; 0666 and 0620 stores are refused) fails on the press code and passes after the recipe on every connector it was replayed on; see the PR that added this record. kaseya-vsa carried the same fix by hand (loose-config-no-tls-or-server).",
+   "gates": [],
+   "upstream": "cli-printing-press: the profile store should be read and judged like the config file (drafted 2026-11-28, not filed)"
   }
  },
  "floors": [
