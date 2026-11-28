@@ -2497,6 +2497,16 @@
       "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. browser-chrome transport to an https proxy. InsecureSkipVerify takes trust.insecure, true only when the operator sets --insecure, RIVERSIDE_FM_SKIP_TLS_VERIFY or skip_tls_verify in their own config; the MCP bridge refuses --insecure. The default verifies against the system or --ca-cert pool. Same code the 4.34.0 fleet entry accepts, plus the kit outbound guard."
     },
     {
+      "file": "cli/internal/client/chrome.go",
+      "rule": "G402",
+      "bind": "decl",
+      "sha256": [
+        "sha256:248575bdf938f8ecd41a519a9a0aa3814ce41f47b4076232bde8c46e82f31447"
+      ],
+      "press": "4.34.0",
+      "reason": "chromeDialTCP, the browser-chrome transport's https-proxy dial: the same declaration riverside-fm's entry above accepts (reviewed 2026-11-05) and the 4.34.0 fleet file entry accepts (reviewed 2026-10-23). InsecureSkipVerify takes trust.insecure, true only when the operator sets --insecure, <SLUG>_SKIP_TLS_VERIFY or skip_tls_verify in their own config; the default verifies against the system or --ca-cert pool. Bound to the declaration so a fix elsewhere in chrome.go (the CONNECT judged by credkit.ProxyWrite, PR 733) does not reopen it; any edit to this declaration is scanned again."
+    },
+    {
       "file": "skills/riverside-fm/cli/internal/client/cookiejar.go",
       "rule": "G124",
       "bind": "decl",
