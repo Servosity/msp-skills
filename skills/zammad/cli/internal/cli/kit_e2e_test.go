@@ -144,7 +144,7 @@ func kitFilesHolding(t *testing.T, root, s string) []string {
 func TestKitClassAConfigCredentialsNeverReachOutput(t *testing.T) {
 	cases := map[string]struct{ body, flag string }{
 		"base_url query value": {"base_url = \"https://h.example.com/api/v1?x=QueryValueSecret77\"\n", "QueryValueSecret77"},
-		"base_url userinfo":    {"base_url = \"https://UserPartSecret77:pw@h.example.com/api/v1\"\n", "UserPartSecret77"},
+		"base_url userinfo":    {"base_url = \"https://op:UserPartSecret77@h.example.com/api/v1\"\n", "UserPartSecret77"},
 		"api_token piece":      {"api_token = \"PieceTokenAbcdefgh1234\"\n", "PieceTokenAb"},
 		"api_token whole":      {"api_token = \"PieceTokenAbcdefgh1234\"\n", "PieceTokenAbcdefgh1234"},
 	}

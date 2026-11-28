@@ -263,6 +263,32 @@ func holdProxyCreds(pu *url.URL, connectHeader http.Header) {
 	holdHeaderAllowedLocked(connectHeader, allowed)
 }
 
+// ProxyWrite writes unit, a request a program's own dialer sends to a proxy
+// (a CONNECT it builds itself, so the kit's transport never sees it), to w
+// only if the kit lets it go, judged as the transport judges the one Go
+// writes (proxyUnit): the proxy's own credentials are held and allowed only
+// there, and over a plain-http proxy no held value is. The verdict and the
+// write are one step under the sinks' barrier (held.go heldMu), as
+// checkConn.Write's are, so a value held meanwhile waits for the write or
+// is judged before it. It returns a withheld error and writes nothing when
+// unit must not be sent.
+func ProxyWrite(w io.Writer, proxy *url.URL, unit []byte) error {
+	if proxy == nil || proxy.Scheme != "http" && proxy.Scheme != "https" {
+		return errRefusedTransport
+	}
+	holdProxyCreds(proxy, nil)
+	po, ok := originOf(proxy)
+	if !ok {
+		return withheldError{SinkHTTP}
+	}
+	defer emitEnd(emitBegin())
+	if pm, unknown := originMatcher(po, po.scheme != "https"); unknown || pm.check(unit) != clean {
+		return withheldError{SinkHTTP}
+	}
+	_, err := w.Write(unit)
+	return err
+}
+
 // proxyUnit is what the proxy receives, as Go writes it: for an https
 // target, the CONNECT request (its line, Host and User-Agent, the
 // ProxyConnectHeader and the Proxy-Authorization from the proxy userinfo);

@@ -37,9 +37,12 @@ func TestNB3EveryByteTheBinariesWriteIsWithheld(t *testing.T) {
 		{"cli-dry-run-mixed-case", cliBin, map[string]string{"mixed": "rEvIeW-sEcReT-0003"}, "credkit: withheld", func(t *testing.T, home string, env []string) ([]string, []string) {
 			return append(env, "HUBSPOT_ACCESS_TOKEN=review-secret-0003"), dryRun("rEvIeW-sEcReT-0003")
 		}},
-		{"cli-dry-run-short-base32hex", cliBin, map[string]string{"base32hex": "B9OJE"}, "credkit: withheld", func(t *testing.T, home string, env []string) ([]string, []string) {
+		// Contract 2(a): a held value under 8 characters is not matched in run
+		// decoder readings (base32hex here), so a short value's encoded echo is
+		// out of scope (section 6 item 11); its raw echo is still withheld.
+		{"cli-dry-run-short-raw", cliBin, map[string]string{"raw": "Zq7"}, "credkit: withheld", func(t *testing.T, home string, env []string) ([]string, []string) {
 			nb2WriteConfig(t, home, "access_token = \""+base+"\"\n\n[headers]\nX-Api-Key = \"Zq7\"\n")
-			return env, dryRun("B9OJE")
+			return env, dryRun("Zq7")
 		}},
 		{"cli-unknown-command-env", cliBin, nb2Forms("review-secret-0002"), "credkit: withheld", func(t *testing.T, home string, env []string) ([]string, []string) {
 			return append(env, "HUBSPOT_ACCESS_TOKEN=review-secret-0002"), []string{"review-secret-0002"}

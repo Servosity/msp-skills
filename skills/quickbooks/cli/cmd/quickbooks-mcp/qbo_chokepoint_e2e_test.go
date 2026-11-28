@@ -300,7 +300,8 @@ func qboSources() []qboSource {
 // credential per source (environment, config field, auth header, [headers],
 // the credential store from stdin, a refreshed token), each short enough
 // that a length exemption would skip it, then drives the CLI and the MCP
-// server for real: a stored row repeating it in lowercase unpadded base32, the dry-run request
+// server for real: a stored row repeating it in lowercase unpadded base32 (as typed when it is
+// under 8 characters), the dry-run request
 // dump repeating it as typed, a delivered file, an MCP sql result (redacted,
 // section 4), and every file the runs wrote. None may carry it in any encoding the check knows; a
 // clean row still prints.
@@ -310,7 +311,13 @@ func TestQBOEveryCredentialSourceReachesNoOutput(t *testing.T) {
 			home := testenv.Isolate(t)
 			seed := filepath.Join(home, "seed.db")
 			clean := filepath.Join(home, "clean.db")
-			stored, _ := json.Marshal(qboPlanted(src.secret))
+			planted := qboPlanted(src.secret)
+			if len(src.secret) < 8 {
+				// A value under 8 characters is not compared in a base32 view (contract 2(a), section 6 item 11):
+				// the row repeats it as typed, a whole token, which is.
+				planted = src.secret
+			}
+			stored, _ := json.Marshal(planted)
 			qboSeed(t, seed, `{"Id":"1","DisplayName":`+string(stored)+`,"Balance":10}`)
 			qboSeed(t, clean, `{"Id":"2","DisplayName":"Clean Marker Co","Balance":5}`)
 			env := src.prepare(t, home, []string{"QUICKBOOKS_BASE_URL=" + qboE2EBaseURL})

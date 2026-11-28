@@ -68,10 +68,16 @@ func TestKit4rvRunDecoderEveryEnd(t *testing.T) {
 	if !withheld([]byte("c2VjcmV0IVwwNDE=")) {
 		t.Error("base64 -> octal escape at an earlier end released")
 	}
-	// A short value inside a decoded code list (Codex: only x..y was queued).
+	// A value inside a decoded code list (Codex: only x..y was queued).
+	// Contract 2(a), amended 2026-11-27: a short value is not compared in a
+	// run decoder's view, so abcd is released there now; secret!! is not.
 	holding(t, "abcd")
-	if !withheld([]byte("120,97,98,99,100,121")) {
-		t.Error("abcd inside a decoded code list released")
+	if withheld([]byte("120,97,98,99,100,121")) {
+		t.Error("a short value withheld inside a decoded code list (contract 2(a))")
+	}
+	holding(t, "secret!!")
+	if !withheld([]byte("120,115,101,99,114,101,116,33,33,121")) {
+		t.Error("secret!! inside a decoded code list released")
 	}
 }
 
@@ -81,9 +87,15 @@ func TestKit4rvRunDecoderEveryEnd(t *testing.T) {
 func TestKit4rvCharsetEveryOffset(t *testing.T) {
 	holding(t, "abcd")
 	// IBM Code Page 037 reads 0xa7,0x81..0x84 as "xabcd"; the offset-1
-	// reading "abcd" is its own candidate.
-	if !withheld([]byte{0xa7, 0x81, 0x82, 0x83, 0x84}) {
-		t.Error("abcd at charset offset 1 released")
+	// reading "abcd" is its own candidate. Contract 2(a), amended
+	// 2026-11-27: a short value is not compared in a stream decoder's view,
+	// so abcd is released there now; abcdefgh (0x81..0x88) is not.
+	if withheld([]byte{0xa7, 0x81, 0x82, 0x83, 0x84}) {
+		t.Error("a short value withheld at charset offset 1 (contract 2(a))")
+	}
+	holding(t, "abcdefgh")
+	if !withheld([]byte{0xa7, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88}) {
+		t.Error("abcdefgh at charset offset 1 released")
 	}
 }
 

@@ -528,7 +528,10 @@ func TestConfigHeaderNeverSilencesTheRun(t *testing.T) {
 	for _, tc := range []struct{ name, toml, word string }{
 		{"transfer coding", "[headers]\nContent-Transfer-Encoding = \"base64\"\n", "Content-Transfer-Encoding"},
 		{"content coding", "[headers]\nContent-Encoding = \"customcoding\"\n", "Content-Encoding"},
-		{"public text", "[headers]\nContent-Encoding = \"br\"\n", "refusing to start"},
+		// "br" was public text only through run or stream decoder noise, which compares no value under 8
+		// characters now (contract 2(a), section 6 item 11): the kit starts and the client refuses the coding aloud.
+		{"short coding", "[headers]\nContent-Encoding = \"br\"\n", "Content-Encoding"},
+		{"public text", "[headers]\nContent-Encoding = \"true\"\n", "refusing to start"},
 		{"charset", "[headers]\nContent-Type = \"application/json; charset=latin1\"\n", "charset"},
 		{"unparseable type", "[headers]\nContent-Type = \"a;;b\"\n", "Content-Type"},
 		{"form", "[headers]\nContent-Type = \"application/x-www-form-urlencoded\"\n", "x-www-form-urlencoded"},

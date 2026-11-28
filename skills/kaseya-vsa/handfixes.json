@@ -1891,6 +1891,28 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "chrome-proxy-connect-judged",
+   "class": "credential-outbound",
+   "summary": "chromeProxyCONNECT judges the CONNECT it builds itself with credkit.ProxyWrite before OutboundGuard writes it.",
+   "why": "The chrome transport dials its own proxy tunnel (h1.Proxy is nil), so the kit's proxy check (credkit transport.go proxyUnit) never judged that CONNECT: exchange-online sent a held token as the proxy password to a plain-http proxy (Codex review of the 2026-11-27 short-value kit PR). ProxyWrite applies the transport's rule: the proxy's own credentials go only to an https proxy, no other held value goes to a proxy.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: a transport that dials its own proxy tunnel should hand the CONNECT to the kit's proxy check.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/chrome.go",
+     "contains": "credkit.ProxyWrite(io.Discard, proxyURL, unit.Bytes())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/review_leak_test.go",
+     "contains": "func TestKitProxyConnectPassesTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

@@ -168,7 +168,8 @@ const ascii85Span = true
 // base32, hex, base85, character-code lists) decodes further, at every
 // alignment, the maximal run it accepts. A shorter span inside that run is
 // read as the stretch of the run's output it decodes to (compared there,
-// with a short value counted anywhere: decode.go runOut), not decoded again
+// with a long value's short spelling counted anywhere and no value shorter
+// than 8 characters compared: decode.go runOut, noShort), not decoded again
 // as a view of its own, so a later decoder that reads greedily (a string
 // escape's octal digits, a character reference's name, a code point) sees
 // the run's own continuation, not every possible end. Every (start, end)

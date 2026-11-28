@@ -58,12 +58,14 @@ func TestDiagnosticSinksNeverShowAHeldCredential(t *testing.T) {
 	b64 := func(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
 	hx := func(s string) string { return hex.EncodeToString([]byte(s)) }
 
-	t.Run("doctor code is a held username's base64", func(t *testing.T) {
-		// The round-1 input: user "sam", a POST probe answered HTTP 200 with
-		// extensions.code "c2Ft".
+	t.Run("doctor code is a held username", func(t *testing.T) {
+		// The round-1 input was user "sam" and extensions.code "c2Ft", its
+		// base64. A value under 8 characters is no longer compared in a run
+		// decoder's view (contract 2(a), section 6 item 11), so the probe
+		// answers HTTP 200 with the user itself as the code, a whole token.
 		host, ca := serveHolderTLS(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"errors":[{"message":"denied","extensions":{"code":"c2Ft"}}]}`))
+			_, _ = w.Write([]byte(`{"errors":[{"message":"denied","extensions":{"code":"sam"}}]}`))
 		}))
 		env := holderEnv(t.TempDir(), map[string]string{
 			"SUPEROPS_BASE_URL":         "https://sam:LongPassword123@" + host,
@@ -73,9 +75,9 @@ func TestDiagnosticSinksNeverShowAHeldCredential(t *testing.T) {
 			"SUPEROPS_LEARN_NO_CAPTURE": "1",
 		})
 		out, _ := runSinkBinary(t, cliBin, env, "doctor", "--json")
-		assertSinkWithheld(t, "doctor --json", out, "c2Ft", "sam:", "sam@", hx("sam"), "LongPassword123", b64("LongPassword123"))
+		assertSinkWithheld(t, "doctor --json", out, "errors: sam", "sam:", "sam@", hx("sam"), "LongPassword123", b64("LongPassword123"))
 		human, _ := runSinkBinary(t, cliBin, env, "doctor")
-		assertSinkWithheld(t, "doctor", human, "c2Ft", "sam:", "sam@", hx("sam"), "LongPassword123")
+		assertSinkWithheld(t, "doctor", human, "errors: sam", "sam:", "sam@", hx("sam"), "LongPassword123")
 		// The verdict is read before the report is withheld: the denied
 		// probe still fails --fail-on warn.
 		if o, code := runSinkBinary(t, cliBin, env, "doctor", "--json", "--fail-on", "warn"); code == 0 {

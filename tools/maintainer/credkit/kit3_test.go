@@ -38,6 +38,7 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/encoding/traditionalchinese"
 	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 	"path/filepath"
 	"slices"
 	"sync/atomic"
@@ -104,6 +105,10 @@ func TestKit3RawDeflateBrokenPrefixIsAView(t *testing.T) {
 
 // Class decoder-length-pruning (A): no decoding is dropped for its
 // length; a short one can expand (NFKC, decompression) and decode on.
+// Contract 2(a), amended 2026-11-27: a held value shorter than 8 characters
+// is not compared in a run or stream decoder's view, so the review's
+// 4-character value (U+337F's NFKC) is released there now; the same paths
+// still find U+FDFA, whose NFKC is 18 characters.
 func TestKit3NoLengthGate(t *testing.T) {
 	holding(t, "株式会社")
 	units := map[string][]byte{
@@ -111,6 +116,18 @@ func TestKit3NoLengthGate(t *testing.T) {
 		"hex of one 3-byte character, NFKC":                  []byte("e38dbf"),
 		"base64 of one 3-byte character, NFKC":               []byte("442/"),
 		"base32 of one 3-byte character, NFKC":               []byte("4OG36"),
+	}
+	for name, u := range units {
+		if withheld(u) {
+			t.Errorf("%s: a short value withheld through a run or stream decoder (contract 2(a))", name)
+		}
+	}
+	holding(t, norm.NFKC.String("\ufdfa"))
+	units = map[string][]byte{
+		"a 4-byte broken deflate prefix, NFKC": mustHex(t, "7bbf7d17"),
+		"hex of one 3-byte character, NFKC":    []byte("efb7ba"),
+		"base64 of one 3-byte character, NFKC": []byte("77e6"),
+		"base32 of one 3-byte character, NFKC": []byte("5633U"),
 	}
 	for name, u := range units {
 		if !withheld(u) {
@@ -122,11 +139,16 @@ func TestKit3NoLengthGate(t *testing.T) {
 // Class decoder-binary-intermediate-pruning (A): a run of one character
 // inside binary is read like any other run.
 func TestKit3OneCharacterRunsAreRead(t *testing.T) {
-	// "㎉" normalizes to "kcal", which base64-decodes to 91 c6 a5.
+	// "㎉" normalizes to "kcal", which base64-decodes to 91 c6 a5. Contract
+	// 2(a), amended 2026-11-27: that 3-byte value is shorter than 8
+	// characters and the base64 view is a run decoder's, so it is released
+	// now. No longer value is reachable this way (a one-character run's
+	// NFKC is at most a few base64 digits, under 8 decoded bytes), so this
+	// path now only documents the trade-off.
 	holding(t, "\x91\xc6\xa5")
 	for _, u := range []string{"\x00㎉\x01", "\xff㎉\xfe", "\x00\x00㎉"} {
-		if !withheld([]byte(u)) {
-			t.Errorf("%q: released", u)
+		if withheld([]byte(u)) {
+			t.Errorf("%q: a short value withheld through a run decoder (contract 2(a))", u)
 		}
 	}
 }
@@ -557,6 +579,7 @@ var kitExits = map[string]string{
 	"exec.go StartCommand json.NewEncoder().Encode":    "child processes: the held set the child must get (contract 1)",
 	"transport.go transport.RoundTrip inner.RoundTrip": "outbound requests: the request after the given check, through the wire-checking transport",
 	"transport.go checkConn.Write c.Conn.Write":        "outbound requests: the head after the wire check, then the already-checked body",
+	"transport.go ProxyWrite w.Write":                  "outbound requests: a CONNECT a program's own dialer builds, after the proxy check, under the barrier",
 	"transport.go render r.Write":                      "outbound requests: renders the request into memory for the check, puts nothing out",
 	"transport.go render r.WriteProxy":                 "outbound requests: renders the proxy's request into memory for the check, puts nothing out",
 	"transport.go render extra[]=":                     "outbound requests: builds the lines the transport adds, in memory",

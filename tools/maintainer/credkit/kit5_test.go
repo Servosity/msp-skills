@@ -150,19 +150,30 @@ func TestKit5HTTPSProxyJudgedAsProxy(t *testing.T) {
 
 // Class charset-start-boundary-loss (contract 3, Candidates, Charsets and
 // Numbers; decision 3): a charset reading starts at every byte offset, so a
-// number spelling of a short digit-only value counts anywhere in it, and a
-// UTF-16 or UTF-32 reading's bytes count a short value anywhere too.
+// short number spelling of a digit-only value counts anywhere in it, and a
+// UTF-16 or UTF-32 reading's bytes count a short spelling anywhere too.
+// Contract 2(a), amended 2026-11-27: a value shorter than 8 characters is
+// not compared in a stream decoder's view, so 1000 and abcd are released
+// there now; 00001000, a long value whose short spelling is 1000, and
+// abcdefgh are not.
 func TestKit5CharsetAnyOffset(t *testing.T) {
-	holding(t, "1000")
-	for name, u := range map[string][]byte{
+	charsetUnits := map[string][]byte{
 		"cp037 x1e3 (Codex)": {0xa7, 0xf1, 0x85, 0xf3},
 		"cp037 x1,000":       {0xa7, 0xf1, 0x6b, 0xf0, 0xf0, 0xf0},
 		"UTF-16BE x1e3":      []byte("\x00x\x001\x00e\x003"),
 		"UTF-16BE x1,000":    []byte("\x00x\x001\x00,\x000\x000\x000"),
 		"UTF-32LE x1.0e3":    utf32le("x1.0e3"),
-	} {
+	}
+	holding(t, "1000")
+	for name, u := range charsetUnits {
+		if withheld(u) {
+			t.Errorf("%s: a short value withheld at a charset offset (contract 2(a))", name)
+		}
+	}
+	holding(t, "00001000")
+	for name, u := range charsetUnits {
 		if !withheld(u) {
-			t.Errorf("%s: a spelling of 1000 at a charset offset released", name)
+			t.Errorf("%s: a spelling of 00001000 at a charset offset released", name)
 		}
 	}
 	holding(t, "abcd")
@@ -171,10 +182,28 @@ func TestKit5CharsetAnyOffset(t *testing.T) {
 		"UTF-16LE xabcd":         []byte("x\x00a\x00b\x00c\x00d\x00"),
 		"UTF-32BE xabcd":         []byte("\x00\x00\x00x\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00d"),
 	} {
-		if !withheld(u) {
-			t.Errorf("%s: abcd at a wide reading's offset released", name)
+		if withheld(u) {
+			t.Errorf("%s: a short value withheld at a wide reading's offset (contract 2(a))", name)
 		}
 	}
+	holding(t, "abcdefgh")
+	for name, u := range map[string][]byte{
+		"UTF-16BE xabcdefgh": utf16BE("xabcdefgh"),
+		"UTF-16LE xabcdefgh": utf16LE("xabcdefgh"),
+		"UTF-32BE xabcdefgh": utf32BE("xabcdefgh"),
+	} {
+		if !withheld(u) {
+			t.Errorf("%s: abcdefgh at a wide reading's offset released", name)
+		}
+	}
+}
+
+func utf16BE(s string) []byte {
+	var b []byte
+	for _, r := range s {
+		b = append(b, byte(r>>8), byte(r))
+	}
+	return b
 }
 
 func utf32le(s string) []byte {

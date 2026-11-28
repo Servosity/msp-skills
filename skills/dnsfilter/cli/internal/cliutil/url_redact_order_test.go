@@ -106,8 +106,12 @@ func TestHoldURLCredentialsHoldsEveryPart(t *testing.T) {
 		return
 	}
 	cases := []struct{ raw, secret string }{
-		{"https://OrdHoldUser0123456:x@api.dnsfilter.com", "OrdHoldUser0123456"},
-		{"https://OrdHoldUser%41Enc789:x@api.dnsfilter.com", "OrdHoldUserAEnc789"},
+		// A key in the username slot, with no password, is held whole, as written and decoded. The user
+		// beside a password is not held (contract 1); these cases once wrote ":x" and passed only
+		// because the short password matched decoder noise (contract 2(a), section 6 item 11). The
+		// encoded value leaves no 8-character window free of "%", so only its decoded hold matches.
+		{"https://OrdHoldUser0123456@api.dnsfilter.com", "OrdHoldUser0123456"},
+		{"https://Dec%41User%42Pct%437@api.dnsfilter.com", "DecAUserBPctC7"},
 		{"https://u:OrdHoldPw0123456789@api.dnsfilter.com", "OrdHoldPw0123456789"},
 		{"http://127.0.0.1:1/?api_key=prefix OrdHoldSpace0123", "prefix OrdHoldSpace0123"},
 		{"http://127.0.0.1:1/?api_key=OrdHold%5FPct0123", "OrdHold_Pct0123"},

@@ -3568,7 +3568,6 @@ reviews:
     - "!skills/exchange-online/cli/internal/cli/transport*.go"
     - "!skills/exchange-online/cli/internal/cli/version*.go"
     - "!skills/exchange-online/cli/internal/cli/which_test*.go"
-    - "!skills/exchange-online/cli/internal/client/chrome*.go"
     - "!skills/exchange-online/cli/internal/client/client_test*.go"
     - "!skills/exchange-online/cli/internal/client/platform*.go"
     - "!skills/exchange-online/cli/internal/cliutil/cliutil*.go"

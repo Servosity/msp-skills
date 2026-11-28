@@ -151,10 +151,10 @@ func TestShortHeldValueInEncodedForms(t *testing.T) {
 		}
 		return b.String()
 	}
+	// The base64 and hex forms are run-decoder readings, where a value under
+	// 8 characters is no longer compared: contract 2(a), section 6 item 11.
 	forms := map[string]string{
 		"as written": code,
-		"base64":     base64.StdEncoding.EncodeToString([]byte(code)),
-		"hex":        hex.EncodeToString([]byte(code)),
 		"percent":    pct(code),
 		"url double": url.QueryEscape(pct(code)),
 	}

@@ -6,7 +6,6 @@
 package cli
 
 import (
-	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -18,16 +17,18 @@ import (
 	"superops-pp-cli/internal/credkit"
 )
 
-// A doctor probe code that is the base64 of a held short value (the round-1
-// input: user "sam", code "c2Ft") is never shown; the denial is read from
-// every code, so withholding one never hides it (round-2 P2).
+// A doctor probe code that is a held short value is never shown; the denial
+// is read from every code, so withholding one never hides it (round-2 P2).
+// The round-1 input was its base64 (user "sam", code "c2Ft"); a value under 8
+// characters is no longer compared in a run decoder's view (contract 2(a),
+// section 6 item 11), so the code is the value itself, a whole token.
 func TestDoctorNeverShowsAHeldCodeAndKeepsTheDenial(t *testing.T) {
 	if !heldChild(t) {
 		return
 	}
 	const short = "z~Q4kP"
 	credkit.Hold("minted:test", short)
-	code := base64.StdEncoding.EncodeToString([]byte(short))
+	code := short
 	codes, failed, err := doctorGraphQLErrorCodes([]byte(`{"errors":[{"message":"denied","extensions":{"code":"` + code + `"}},{"message":"x","extensions":{"code":"UNAUTHENTICATED"}}]}`))
 	if err != nil || !failed || !doctorGraphQLDenied(codes) {
 		t.Fatalf("codes %q failed=%v denied=%v err=%v", codes, failed, doctorGraphQLDenied(codes), err)

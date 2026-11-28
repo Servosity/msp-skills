@@ -186,16 +186,28 @@ func TestKit14MultipartReadErrorFailsClosed(t *testing.T) {
 
 // kit14rv Codex r3, decoder-length-pruning: one character is a candidate
 // of Ascii85, whose z (and btoa's y) group decodes to four bytes; the
-// one-character shortcuts skip only what no decoder reads.
+// one-character shortcuts skip only what no decoder reads. Contract 2(a),
+// amended 2026-11-27: four NULs are shorter than 8 characters and Ascii85 is
+// a run decoder, so that value is released there now; eight NULs, two z
+// groups, still are not.
 func TestKit14OneCharacterAscii85Group(t *testing.T) {
 	resetForTest(Declarations{})
 	Hold("minted:probe", "\x00\x00\x00\x00")
 	m, _ := currentMatcher()
-	if v := m.check([]byte{0x80, 'z', 0x80}); v == clean {
-		t.Errorf("a lone z between non-text bytes read clean")
+	if v := m.check([]byte{0x80, 'z', 0x80}); v != clean {
+		t.Errorf("a short value withheld through Ascii85 (contract 2(a)): %v", v)
 	}
-	if v := m.check([]byte("z")); v == clean {
-		t.Errorf("control z read clean")
+	if v := m.check([]byte("z")); v != clean {
+		t.Errorf("a short value withheld through Ascii85 (contract 2(a)): %v", v)
+	}
+	resetForTest(Declarations{})
+	Hold("minted:probe", "\x00\x00\x00\x00\x00\x00\x00\x00")
+	m, _ = currentMatcher()
+	if v := m.check([]byte{0x80, 'z', 'z', 0x80}); v == clean {
+		t.Errorf("two z groups between non-text bytes read clean")
+	}
+	if v := m.check([]byte("zz")); v == clean {
+		t.Errorf("control zz read clean")
 	}
 }
 

@@ -3,7 +3,7 @@ layout: default
 title: "Credential leak contract - what every connector must never print, store or send | MSP Skills"
 description: "The fixed rules every MSP Skills connector and its review are judged against: which values count as held credentials, what counts as a leak (a whole value at any length, pieces of 8 or more characters, credentials sent off their declared hosts), the closed list of encodings checked, public text, and the cases that are tracked but never block."
 permalink: /credential-leak-contract/
-last_modified_at: 2026-11-09
+last_modified_at: 2026-11-27
 ---
 
 # Credential leak contract
@@ -39,6 +39,12 @@ full check cost about 1 CPU-s per stored row. One rule stays: while a value from
 held, a statement whose string or byte argument carries that whole value, raw or JSON-escaped, is refused, so a vendor
 secret never persists to print unheld in a later run. Accepted risk: a credential from any other source can sit in the
 local store unchecked. Output, files and outbound requests are checked as before.
+
+Amended 2026-11-27, owner-approved (short held values): a held value shorter than 8 characters is compared only in
+the raw unit and in the views substitution decoders produce from it, and only as a whole token on both sides
+(section 2(a)). It is not compared in any view a run decoder or a stream decoder produces, or in any view decoded from
+one. Values of 8 or more characters and outbound requests (section 2(c)) are unchanged. Section 6 gains item 11, a
+short value carried only through a run or stream decoder.
 
 ## 1. Held credentials
 
@@ -94,13 +100,17 @@ source. Nothing outside that table is public text, and a table entry that is not
 
 An emitted unit leaks when, after the decoding in section 3, it contains any of these:
 
-- **(a) A held credential, whole.** A value of 8 or more characters counts anywhere. A shorter value counts as a whole
-  token: each side is the start or end of the unit or a character that is not a letter or digit, or it is the complete
-  value of a field, header, argument or line.
+- **(a) A held credential, whole.** A value of 8 or more characters counts anywhere. A shorter value counts only as a
+  whole token, and only in the raw bytes of the unit and in the views that substitution decoders (section 3,
+  Candidates) produce from them, through any number of further substitution decoders: each side is the start or end of
+  that view or a character that is not a letter or digit, or it is the complete value of a field, header, argument or
+  line. A shorter value is not compared in a view that a run decoder or a stream decoder produces, or in any view
+  decoded, by any decoder, from such a view (amended 2026-11-27).
 - **(b) A contiguous piece of a held credential 8 or more characters long,** anywhere.
 - **(c) An outbound request** to an origin outside a credential's allowed origins, over plain http, or carried across
   a redirect to a different origin, that contains that credential whole or a piece of it, by the tests of (a) and (b)
-  after the decoding in section 3.
+  after the decoding in section 3. The limit (a) sets on the views a shorter value is compared in does not apply here:
+  in an outbound request a shorter value is compared in every view section 3 names.
 
 An outbound request is judged by (c) alone. A credential sent over https to one of its own allowed origins, and not
 carried across a redirect to a different origin, is the program working, not a leak. Every other unit is judged by (a) and (b).
@@ -153,7 +163,9 @@ this section names; a match there withholds the unit, but the absence of an unna
 
 **Views.** A view is the raw bytes of a unit, or what one decoder below produces from a view. Every view, whatever its
 length or content (text, binary, mixed, one character), is compared under section 2 and read by every decoder
-(Recursion), within the reading bounds below. A candidate that a decoder's rule does not accept gives no view.
+(Recursion), within the reading bounds below, except that a value shorter than 8 characters is compared only in the raw
+unit and in the views substitution decoders produce from it (section 2(a)). A candidate that a decoder's rule does not
+accept gives no view.
 
 **Candidates.** Each decoder below is of one of three kinds, and its kind fixes where its candidates start and end:
 
@@ -162,7 +174,8 @@ length or content (text, binary, mixed, one character), is compared under sectio
   accepts whole. Bytes that decoder accepts and ignores are inside the span: carriage returns and newlines for Go's
   `encoding/base64` and `encoding/base32`, and space and control characters for Go's `encoding/ascii85`. No separate
   test decides which characters a span may contain. Each candidate's output is a view of its own, so its start and end
-  are view boundaries for 2(a).
+  are view boundaries for 2(a) for a value of 8 or more characters (a shorter Numbers spelling of one). A value shorter
+  than 8 characters is never compared in a run decoder's view.
 - **Substitution decoders** (percent-encoding, quoted-printable, character references, string escapes, MIME encoded
   words, ROT13, normalization, case folding): the candidate is the whole view. The output is the view with every
   sequence the rule recognizes replaced by what it decodes to, and every other byte kept as written.
@@ -225,8 +238,9 @@ Also:
   mixed or not; and scientific notation (a mantissa with at most one decimal point, `e` or `E`, and an exponent with or
   without a sign) whose value is exactly that integer. The plus sign, leading zeros and groups combine. A spelling is
   judged by its own length under section 2: one shorter than 8 characters counts only as a whole token, and a separator
-  between two digits does not end a token. An 8-digit piece of such a credential also matches when its digits are
-  grouped this way.
+  between two digits does not end a token. A spelling of a credential shorter than 8 characters is compared only where
+  2(a) compares that credential. An 8-digit piece of such a credential also matches when its digits are grouped this
+  way.
 - **Streams.** Stdout, stderr and a file written as a stream of writes are checked write by write, each write with the
   context of the stream that the kit still holds, so a credential split across writes is found at the first write that
   completes it whole or completes an 8-character piece of it. A JSON document still open at the end of a write is joined
@@ -263,7 +277,8 @@ Also:
     base85 that is the whole run of the alphabet's characters, read from each place a whole group can start (the
     first four characters of a base64 run, the first eight of a base32 run, the first five of a base85 run); for hex,
     the whole chain of pairs from where it starts; for a character-code list, the whole list. That output is compared
-    under section 2 with a short value counted anywhere in it, and is read by the decoders in turn. A shorter span
+    under section 2 with a shorter Numbers spelling of a value of 8 or more characters counted anywhere in it (a value
+    shorter than 8 characters is not compared there, section 2(a)), and is read by the decoders in turn. A shorter span
     inside one of these is not decoded further as a view of its own, so a decoder that reads a sequence greedily (a
     string escape's octal digits, a character reference's name, a code point) sees the run's own continuation, not
     every end a shorter span would give it.
@@ -340,6 +355,11 @@ A review may raise these as P2, never as P1:
    characters, so that character splits the document before the join reads it. Example: the hex of an ISO-2022-JP
    text that reads `%7B"あ":0,"a":"secr","b":"et!!"}` needs hex, ISO-2022-JP, percent-encoding and the join, four
    decodings in a row.
+11. A held value shorter than 8 characters carried only through a run decoder (base64, base32, hex, base85,
+   character-code lists) or a stream decoder (a charset such as UTF-16, or a compressed stream), or through any
+   decoding of such a view (amended 2026-11-27). A value that short is guessable, and comparing it in those views
+   withheld ordinary output: their noise readings of ordinary text hold a 2 to 7 character value by chance. Values of 8
+   or more characters keep full coverage.
 
 ## 7. Per-connector declarations
 

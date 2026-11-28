@@ -267,9 +267,15 @@ func TestContract3NoLengthPruning(t *testing.T) {
 	if !leaks("<~zz~>") {
 		t.Error("Ascii85 'z' groups decoding to the held value were pruned")
 	}
-	holding(t, "0000042")
+	// A digit-only value of 8 characters: a shorter one is not compared in a
+	// run decoder's view (contract 2(a), amended 2026-11-27).
+	holding(t, "00000042")
 	if !leaks("NDI=") { // base64("42")
 		t.Error("base64 of the short integer spelling of a digit-only credential was pruned")
+	}
+	holding(t, "0000042")
+	if leaks("NDI=") {
+		t.Error("a short digit-only value withheld through base64 (contract 2(a))")
 	}
 }
 

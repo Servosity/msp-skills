@@ -79,11 +79,11 @@ func TestKit3rvNumbersEverySpelling(t *testing.T) {
 			nil,
 		},
 		{"1234",
-			// x1'2'3'4 and 5,1,234: a reading from the offset of the 1 is a
-			// spelling (kit5rv, tokenAt: the left side is a view boundary).
-			[]string{"pin 1'2'3'4", "pin 1 2 3 4", "pin +0,001,234", "(1.234)", "1,2,3,4", "1.234e3", "0001234",
-				"x1'2'3'4", "5,1,234"},
-			[]string{"id 1,2345", "1,234,5", "1'2'3'4x", "1.234e2", "1,234,56"},
+			// x1'2'3'4 and 5,1,234: a short value's spelling needs a left
+			// boundary too (contract 2(a), amended 2026-11-27), so a letter
+			// or a grouped digit before it makes it part of a longer token.
+			[]string{"pin 1'2'3'4", "pin 1 2 3 4", "pin +0,001,234", "(1.234)", "1,2,3,4", "1.234e3", "0001234"},
+			[]string{"id 1,2345", "1,234,5", "1'2'3'4x", "1.234e2", "1,234,56", "x1'2'3'4", "5,1,234"},
 		},
 		{"1234567",
 			[]string{"x1,234,567y", "a01234567"},

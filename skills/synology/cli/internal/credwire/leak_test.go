@@ -446,6 +446,10 @@ func TestNoHeldCredentialReachesAnyOutput(t *testing.T) {
 				leaks = append(leaks, fmt.Sprintf("%s: %s literal", out, name))
 			}
 			for form, v := range plantedForms(s) {
+				if len(s) < 8 && (form == "base64" || form == "base64x5" || form == "hex") {
+					// A value under 8 characters is not compared in a run decoder's view (contract 2(a), section 6 item 11).
+					continue
+				}
 				if strings.Contains(data, v) {
 					leaks = append(leaks, fmt.Sprintf("%s: %s %s", out, name, form))
 				}
