@@ -102,7 +102,9 @@ def request_json(url: str, token: str) -> Any:
             f"Nizlo API returned HTTP {exc.code}: {redact(body, token)}"
         ) from None
     except URLError as exc:
-        raise ClientError(f"Unable to reach the Nizlo API: {exc.reason}") from None
+        raise ClientError(
+            f"Unable to reach the Nizlo API: {type(exc.reason).__name__}"
+        ) from None
     except (OSError, HTTPException) as exc:
         raise ClientError(
             f"Nizlo API response was interrupted: {type(exc).__name__}"
@@ -464,6 +466,19 @@ def selfcheck() -> None:
         raise AssertionError("interrupted response did not raise ClientError")
     finally:
         globals()["open_request"] = original_open_request
+    def fake_unreachable_request(request: Request, timeout: int) -> Response:
+        raise URLError(OSError("private transport diagnostic"))
+
+    globals()["open_request"] = fake_unreachable_request
+    try:
+        request_json(base + "dashboard/summary", secret)
+    except ClientError as exc:
+        assert str(exc) == "Unable to reach the Nizlo API: OSError"
+    else:
+        raise AssertionError("connection failure did not raise ClientError")
+    finally:
+        globals()["open_request"] = original_open_request
+
     print(
         "nizlo_api.py selfcheck OK "
         "(offline, HTTPS routes + bearer header + redaction + stale report)"
