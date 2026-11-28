@@ -4,6 +4,15 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.10] - 2026-11-28
+
+### Fixed
+- **An MCP tool result that carries a credential in a JSON field now keeps its other fields.** The credential kit used to withhold every MCP tool result that held a credential this program knows. When the result is JSON and the credential sits inside field values, each such value is now replaced with `[redacted]` and the rest of the result reaches the agent. A result that cannot be redacted safely (plain text, a credential in a key or spread across fields, or a result over the size limits) is still withheld whole. Thanks to @rodolphobrock for the report and the original change ([#729](https://github.com/Servosity/msp-skills/pull/729), [#730](https://github.com/Servosity/msp-skills/pull/730)).
+- **Ordinary output that happens to contain a short credential's characters is no longer withheld.** A held value under 8 characters is now matched only as a whole word, in raw and substituted text, never inside encoded or decoded readings. A short secret that is echoed only base64- or hex-encoded is the accepted trade-off ([#733](https://github.com/Servosity/msp-skills/pull/733)).
+
+### Security
+- **A run-profile store that other users can change is refused.** `--profile` used to apply a `profiles.json` that was group- or world-writable. Such a store could set `--ca-cert`, `--tls-server-name` or `--deliver` for your commands. It is now read the way the config file is and refused when other users can change it ([#736](https://github.com/Servosity/msp-skills/pull/736)).
+
 ## [0.1.9] - 2026-11-14
 
 ### Fixed

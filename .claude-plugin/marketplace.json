@@ -1280,7 +1280,7 @@
       "name": "bitdefender",
       "source": "./skills/bitdefender",
       "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "security",
       "tags": [
         "bitdefender",
